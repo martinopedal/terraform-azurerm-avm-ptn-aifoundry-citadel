@@ -1,0 +1,135 @@
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_resource_group" "network" {
+  name     = local.rg_network
+  location = var.location
+  tags     = local.tags
+}
+
+resource "azurerm_resource_group" "platform" {
+  name     = local.rg_platform
+  location = var.location
+  tags     = local.tags
+}
+
+resource "azurerm_resource_group" "gateway" {
+  name     = local.rg_gateway
+  location = var.location
+  tags     = local.tags
+}
+
+resource "azurerm_resource_group" "compute" {
+  name     = local.rg_compute
+  location = var.location
+  tags     = local.tags
+}
+
+module "networking" {
+  source = "./modules/networking"
+
+  location             = var.location
+  resource_group_name  = azurerm_resource_group.network.name
+  name_suffix          = local.name_suffix
+  address_space        = var.spoke_address_space
+  hub_vnet_resource_id = var.hub_vnet_resource_id
+  enable_telemetry     = var.enable_telemetry
+  tags                 = local.tags
+}
+
+module "observability" {
+  source = "./modules/observability"
+
+  location            = var.location
+  resource_group_name = azurerm_resource_group.platform.name
+  name_suffix         = local.name_suffix
+  enable_telemetry    = var.enable_telemetry
+  tags                = local.tags
+}
+
+module "data" {
+  source = "./modules/data"
+
+  location                   = var.location
+  resource_group_name        = azurerm_resource_group.platform.name
+  name_suffix                = local.name_suffix
+  pe_subnet_id               = module.networking.pe_subnet_id
+  private_dns_zone_ids       = var.private_dns_zone_ids
+  log_analytics_workspace_id = module.observability.log_analytics_workspace_id
+  acr_sku                    = local.sku.acr
+  search_sku                 = local.sku.search
+  acr_tasks_subnet_id        = module.networking.acr_tasks_subnet_id
+  enable_telemetry           = var.enable_telemetry
+  tags                       = local.tags
+}
+
+module "aoai" {
+  source = "./modules/aoai"
+
+  location                   = var.location
+  resource_group_name        = azurerm_resource_group.platform.name
+  name_suffix                = local.name_suffix
+  pe_subnet_id               = module.networking.pe_subnet_id
+  private_dns_zone_ids       = var.private_dns_zone_ids
+  log_analytics_workspace_id = module.observability.log_analytics_workspace_id
+  aoai_capacity              = local.sku.aoai_capacity
+  enable_telemetry           = var.enable_telemetry
+  tags                       = local.tags
+}
+
+module "foundry" {
+  source = "./modules/foundry"
+
+  location                           = var.location
+  resource_group_name                = azurerm_resource_group.platform.name
+  name_suffix                        = local.name_suffix
+  pe_subnet_id                       = module.networking.pe_subnet_id
+  private_dns_zone_ids               = var.private_dns_zone_ids
+  log_analytics_workspace_id         = module.observability.log_analytics_workspace_id
+  associated_key_vault_id            = module.data.key_vault_id
+  associated_storage_account_id      = module.data.storage_account_id
+  associated_container_registry_id   = module.data.acr_id
+  associated_application_insights_id = module.observability.application_insights_id
+  aoai_endpoint                      = module.aoai.endpoint
+  enable_telemetry                   = var.enable_telemetry
+  tags                               = local.tags
+}
+
+module "gateway" {
+  source = "./modules/gateway"
+
+  location                                 = var.location
+  resource_group_name                      = azurerm_resource_group.gateway.name
+  name_suffix                              = local.name_suffix
+  apim_subnet_id                           = module.networking.apim_subnet_id
+  apim_sku                                 = local.apim_sku
+  zones                                    = local.apim_zones
+  log_analytics_workspace_id               = module.observability.log_analytics_workspace_id
+  application_insights_id                  = module.observability.application_insights_id
+  application_insights_instrumentation_key = module.observability.application_insights_instrumentation_key
+  aoai_endpoint                            = module.aoai.endpoint
+  foundry_project_endpoint                 = module.foundry.project_endpoint
+  tenant_id                                = data.azurerm_client_config.current.tenant_id
+  enable_telemetry                         = var.enable_telemetry
+  tags                                     = local.tags
+}
+
+module "compute" {
+  source = "./modules/compute"
+
+  location                               = var.location
+  resource_group_name                    = azurerm_resource_group.compute.name
+  name_suffix                            = local.name_suffix
+  aca_subnet_id                          = module.networking.aca_subnet_id
+  log_analytics_workspace_id             = module.observability.log_analytics_workspace_id
+  application_insights_connection_string = module.observability.application_insights_connection_string
+  zone_redundant                         = false
+  acr_login_server                       = module.data.acr_login_server
+  storage_queue_endpoint                 = module.data.storage_queue_endpoint
+  storage_queue_name                     = module.data.storage_queue_name
+  apim_gateway_url                       = module.gateway.apim_gateway_url
+  foundry_project_endpoint               = module.foundry.project_endpoint
+  git_sha                                = var.git_sha
+  env_name                               = var.environment
+  enable_telemetry                       = var.enable_telemetry
+  tags                                   = local.tags
+}
