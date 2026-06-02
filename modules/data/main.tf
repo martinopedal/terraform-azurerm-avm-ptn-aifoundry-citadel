@@ -185,6 +185,37 @@ module "cosmos" {
     }
   }
 
+  # Citadel AI usage ingestion schema (5 containers)
+  # Source: Azure-Samples/ai-hub-gateway-solution-accelerator @ citadel-v1 SHA f2702b49
+  # bicep/infra/modules/cosmos-db/cosmos-db.bicep
+  sql_databases = {
+    ai_usage_db = {
+      name = "ai-usage-db"
+      containers = {
+        ai_usage_container = {
+          name                = "ai-usage-container"
+          partition_key_paths = ["/productName"]
+        }
+        model_pricing = {
+          name                = "model-pricing"
+          partition_key_paths = ["/model"]
+        }
+        pii_usage_container = {
+          name                = "pii-usage-container"
+          partition_key_paths = ["/type"]
+        }
+        llm_usage_container = {
+          name                = "llm-usage-container"
+          partition_key_paths = ["/productName"]
+        }
+        streaming_export_config = {
+          name                = "streaming-export-config"
+          partition_key_paths = ["/type"]
+        }
+      }
+    }
+  }
+
   private_endpoints = {
     sql = {
       name                            = "pe-${local.cosmos_name}"
