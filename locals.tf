@@ -7,9 +7,9 @@ locals {
   rg_compute  = coalesce(try(var.resource_group_names.compute, null), "rg-${local.name_suffix}-compute")
 
   sku_map = {
-    dev  = { search = "standard", acr = "Premium", aoai_capacity = 30 }
-    test = { search = "standard", acr = "Premium", aoai_capacity = 60 }
-    prod = { search = "standard2", acr = "Premium", aoai_capacity = 120 }
+    dev  = { search = "standard", acr = "Premium" }
+    test = { search = "standard", acr = "Premium" }
+    prod = { search = "standard2", acr = "Premium" }
   }
   sku = local.sku_map[var.environment]
 

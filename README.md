@@ -71,6 +71,29 @@ module "citadel" {
 
 See `examples/default` for a complete syntactic example.
 
+## Cost & Tiers
+
+**Baseline cost (cheap default):**
+- Model deployment: single `gpt-4o-mini` (Standard, 10K TPM) = pay-per-token, minimal baseline (~$0.15/$0.60 per 1M tokens in/out)
+- Network security: private-by-default (private endpoints ~$7.30/mo each × 7 = ~$51/mo)
+- Storage/Log retention: 30 days
+- No zone redundancy, no customer-managed keys
+
+**Opt-in hardening/scale levers:**
+1. **MODELS** (`aoai_deployments`): Add more models, upgrade to `Provisioned` SKU for reserved throughput (PTU pricing, expensive), or use `GlobalStandard` for global routing (similar cost to Standard).
+2. **SECURITY**:
+   - `public_network_access_enabled = true` — allow public access (not recommended; violates ALZ demo-private-by-default policy).
+   - `disable_local_auth = false` — allow shared-key auth (legacy, not recommended).
+   - `enable_cmk = true` — customer-managed encryption keys (requires Key Vault Premium, adds complexity).
+   - `enable_private_endpoints = false` — disable private endpoints (saves ~$51/mo, not recommended for production).
+3. **RELIABILITY**:
+   - `enable_zone_redundancy = true` — zone redundancy for ACA (+50% cost) and APIM Premium (included in SKU). Note: AOAI and Foundry zone redundancy is region-dependent and not currently configured by this module.
+   - `diagnostic_retention_days = 90` (or 180, 365) — longer retention for compliance (incurs additional storage cost).
+
+**SKU couplings:**
+- Zone redundancy for APIM requires `environment = "prod"` (Premium_2 SKU); Developer_1 does not support zones.
+- Customer-managed keys require Key Vault Premium SKU (the module does not currently provision CMK wiring; this is a future enhancement).
+
 ## Inputs
 
 | Name | Type | Default | Description |
@@ -86,6 +109,13 @@ See `examples/default` for a complete syntactic example.
 | `network_group_tag` | `string` | `null` | Optional `network-group` tag value for tag-driven AVNM membership. |
 | `enable_telemetry` | `bool` | `true` | Passed to all consumed AVM modules. |
 | `git_sha` | `string` | `"latest"` | Placeholder container image tag. |
+| **`aoai_deployments`** | `list(object)` | single `gpt-4o-mini` | AOAI model deployments (name, model, version, sku_type, capacity). Default = cheap baseline. |
+| **`enable_private_endpoints`** | `bool` | `true` | Enable private endpoints for all services. Default true (private-by-default ALZ posture). |
+| **`public_network_access_enabled`** | `bool` | `false` | Allow public network access to Foundry and AOAI. Default false (ALZ demo default). |
+| **`disable_local_auth`** | `bool` | `true` | Disable shared-key auth on AOAI (AAD-only). Recommended for production. |
+| **`enable_cmk`** | `bool` | `false` | Enable customer-managed key encryption (requires Key Vault Premium, not yet wired). |
+| **`enable_zone_redundancy`** | `bool` | `false` | Enable zone redundancy for ACA and APIM Premium. Default false (cheap). |
+| **`diagnostic_retention_days`** | `number` | `30` | Diagnostic log retention in days. Default 30 (cheap). Increase for compliance. |
 
 ## Outputs
 

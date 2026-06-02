@@ -18,6 +18,8 @@ variable "associated_container_registry_id" { type = string }
 variable "associated_application_insights_id" { type = string }
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
+variable "enable_private_endpoints" { type = bool }
+variable "public_network_access" { type = bool }
 variable "aoai_endpoint" {
   type        = string
   description = "AOAI endpoint URL for Foundry connection"
@@ -56,7 +58,7 @@ resource "azapi_resource" "hub" {
       storageAccount      = var.associated_storage_account_id
       containerRegistry   = var.associated_container_registry_id
       applicationInsights = var.associated_application_insights_id
-      publicNetworkAccess = "Disabled"
+      publicNetworkAccess = var.public_network_access ? "Enabled" : "Disabled"
       managedNetwork = {
         isolationMode = "AllowOnlyApprovedOutbound"
       }
@@ -84,7 +86,7 @@ resource "azapi_resource" "project" {
     properties = {
       friendlyName        = local.project_name
       hubResourceId       = azapi_resource.hub.id
-      publicNetworkAccess = "Disabled"
+      publicNetworkAccess = var.public_network_access ? "Enabled" : "Disabled"
     }
   }
 
@@ -94,6 +96,8 @@ resource "azapi_resource" "project" {
 
 // ---------------- Private endpoint for the Hub ----------------
 module "hub_private_endpoint" {
+  count = var.enable_private_endpoints ? 1 : 0
+
   source  = "Azure/avm-res-network-privateendpoint/azurerm"
   version = "0.2.0"
 

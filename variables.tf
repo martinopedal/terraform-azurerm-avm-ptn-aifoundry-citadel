@@ -77,3 +77,79 @@ variable "git_sha" {
   default     = "latest"
   description = "Default container image tag for placeholder Container Apps/Jobs."
 }
+
+# ============================================================================
+# COST & TIER CONTROLS
+# ============================================================================
+
+# -------------------- MODEL DEPLOYMENTS --------------------
+
+# cost: List of AOAI model deployments. Default = single gpt-4o-mini (Standard, cheap).
+# Opt-in: add more models, use Provisioned/PTU for reserved throughput (expensive).
+variable "aoai_deployments" {
+  type = list(object({
+    name    = string
+    model   = string
+    version = string
+    # cost: Standard = pay-per-token (cheap); GlobalStandard = global routing (cheap); Provisioned = reserved throughput (expensive, PTU).
+    sku_type = string
+    capacity = number
+  }))
+  default = [
+    {
+      name     = "gpt-4o-mini"
+      model    = "gpt-4o-mini"
+      version  = "2024-07-18"
+      sku_type = "Standard"
+      capacity = 10 # 10K TPM = minimal baseline
+    }
+  ]
+  description = "AOAI model deployments. Each entry: name, model, version, sku_type (Standard/GlobalStandard/Provisioned), capacity (TPM for Standard/GlobalStandard, PTU for Provisioned)."
+}
+
+# -------------------- SECURITY CONTROLS --------------------
+
+# cost: Private endpoints add ~$7.30/mo per PE. Default true (private-by-default ALZ posture).
+variable "enable_private_endpoints" {
+  type        = bool
+  default     = true
+  description = "Enable private endpoints for Foundry, AOAI, Storage, Key Vault, ACR, Cosmos, and Search. Disable for dev-only scenarios (not recommended)."
+}
+
+# cost: No direct cost impact. Default false = private-only access (ALZ demo default).
+# Opt-in: true = allow public network access to Foundry hub/project and AOAI account (requires explicit opt-in per ALZ security policy).
+variable "public_network_access_enabled" {
+  type        = bool
+  default     = false
+  description = "Allow public network access to Foundry and AOAI. Default false enforces private-only (ALZ demo default). Set true only for explicitly public demos."
+}
+
+# cost: No direct cost. Default true = AAD-only auth (recommended). Set false to allow shared-key auth (legacy, not recommended).
+variable "disable_local_auth" {
+  type        = bool
+  default     = true
+  description = "Disable local/shared-key authentication on AOAI account (enforce AAD-only). Recommended for production."
+}
+
+# cost: Customer-managed keys require Key Vault Premium (~$3/mo extra) + operational complexity. Default false (Microsoft-managed keys, cheap).
+variable "enable_cmk" {
+  type        = bool
+  default     = false
+  description = "Enable customer-managed key encryption for Foundry workspace and AOAI account. Requires Key Vault Premium. Default false (Microsoft-managed keys)."
+}
+
+# -------------------- RELIABILITY CONTROLS --------------------
+
+# cost: Zone redundancy varies by service. ACA: +50% cost. APIM Premium: included. AOAI/Foundry: region-dependent, may not be available. Default false (cheap).
+variable "enable_zone_redundancy" {
+  type        = bool
+  default     = false
+  description = "Enable zone redundancy for Container Apps Environment and APIM (when prod SKU). Note: AOAI and Foundry zone redundancy is region-dependent; module does not currently configure it."
+}
+
+# cost: Log retention beyond 30 days incurs storage cost. Default 30 (cheap). Opt-in to 90+ for compliance.
+variable "diagnostic_retention_days" {
+  type        = number
+  default     = 30
+  description = "Diagnostic log retention in days. Default 30 (cheap baseline). Increase for compliance needs (90, 180, 365)."
+}

@@ -71,7 +71,10 @@ module "aoai" {
   pe_subnet_id               = module.networking.pe_subnet_id
   private_dns_zone_ids       = var.private_dns_zone_ids
   log_analytics_workspace_id = module.observability.log_analytics_workspace_id
-  aoai_capacity              = local.sku.aoai_capacity
+  aoai_deployments           = var.aoai_deployments
+  enable_private_endpoints   = var.enable_private_endpoints
+  public_network_access      = var.public_network_access_enabled
+  disable_local_auth         = var.disable_local_auth
   enable_telemetry           = var.enable_telemetry
   tags                       = local.tags
 }
@@ -90,6 +93,8 @@ module "foundry" {
   associated_container_registry_id   = module.data.acr_id
   associated_application_insights_id = module.observability.application_insights_id
   aoai_endpoint                      = module.aoai.endpoint
+  enable_private_endpoints           = var.enable_private_endpoints
+  public_network_access              = var.public_network_access_enabled
   enable_telemetry                   = var.enable_telemetry
   tags                               = local.tags
 }
@@ -122,7 +127,7 @@ module "compute" {
   aca_subnet_id                          = module.networking.aca_subnet_id
   log_analytics_workspace_id             = module.observability.log_analytics_workspace_id
   application_insights_connection_string = module.observability.application_insights_connection_string
-  zone_redundant                         = false
+  zone_redundant                         = var.enable_zone_redundancy
   acr_login_server                       = module.data.acr_login_server
   storage_queue_endpoint                 = module.data.storage_queue_endpoint
   storage_queue_name                     = module.data.storage_queue_name
