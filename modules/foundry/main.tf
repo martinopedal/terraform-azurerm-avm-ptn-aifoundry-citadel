@@ -5,6 +5,14 @@
 // the GA-equivalent contract for the Foundry Hub/Project pattern; track the
 // upstream `Azure/avm-res-machinelearningservices-workspace/azurerm` module
 // for a stable replacement.
+//
+// NOTE (Citadel API type migration tracked separately):
+// Upstream citadel-v1 uses Microsoft.CognitiveServices/accounts@2026-01-15-preview
+// kind=AIServices (endpoint: services.ai.azure.com). This module uses
+// Microsoft.MachineLearningServices/workspaces kind=Hub (endpoint: api.azureml.ms).
+// Full API migration is a breaking change (endpoint format differs); staged as
+// separate follow-up PR. This pass adds networkInjections + App Insights connection
+// to the existing Hub/Project module to unblock Citadel integration.
 
 variable "location" { type = string }
 variable "resource_group_name" { type = string }
@@ -16,6 +24,17 @@ variable "associated_key_vault_id" { type = string }
 variable "associated_storage_account_id" { type = string }
 variable "associated_container_registry_id" { type = string }
 variable "associated_application_insights_id" { type = string }
+variable "agent_subnet_id" {
+  type        = string
+  default     = null
+  description = "Subnet ID for AI Foundry agent network injection (Microsoft.App/environments delegated subnet). Set to enable Citadel agent scenarios."
+}
+variable "app_insights_instrumentation_key" {
+  type        = string
+  sensitive   = true
+  default     = null
+  description = "App Insights instrumentation key for Foundry App Insights connection (Citadel usage tracking). Optional; if null, connection is not created."
+}
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
 variable "enable_private_endpoints" { type = bool }
@@ -62,6 +81,14 @@ resource "azapi_resource" "hub" {
       managedNetwork = {
         isolationMode = "AllowOnlyApprovedOutbound"
       }
+      # Citadel agent network injection (optional)
+      networkInjections = var.agent_subnet_id != null ? [
+        {
+          scenario     = "agent"
+          subnetArmId  = var.agent_subnet_id
+          ipAddressType = "Private"
+        }
+      ] : []
     }
   }
 
@@ -146,6 +173,31 @@ resource "azapi_resource" "aoai_connection" {
       metadata = {
         ApiVersion = "2024-10-01"
         ApiType    = "azure"
+      }
+    }
+  }
+
+  response_export_values    = ["properties.category", "properties.target"]
+  schema_validation_enabled = false
+}
+
+// Citadel App Insights connection (optional — for usage tracking to App Insights)
+// Source: bicep/infra/modules/foundry/foundry.bicep — appInsightsConnection resource
+resource "azapi_resource" "appinsights_connection" {
+  count     = var.app_insights_instrumentation_key != null ? 1 : 0
+  type      = "Microsoft.MachineLearningServices/workspaces/connections@2024-10-01-preview"
+  name      = "appinsights-connection"
+  parent_id = azapi_resource.project.id
+  tags      = var.tags
+
+  body = {
+    properties = {
+      category      = "AppInsights"
+      target        = var.associated_application_insights_id
+      authType      = "ApiKey"
+      isSharedToAll = true
+      credentials = {
+        key = var.app_insights_instrumentation_key
       }
     }
   }
