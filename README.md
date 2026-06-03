@@ -71,6 +71,12 @@ module "citadel" {
 
 See `examples/default` for a complete syntactic example.
 
+## Network egress requirements
+
+Force-tunneled ALZ spokes route residual AI Foundry, Azure OpenAI, portal callback, model artifact, and shared Azure control-plane egress through the hub Azure Firewall. Open the workload-specific FQDNs in [EGRESS.md](EGRESS.md) before deploying private Citadel spokes; private endpoints remain the primary path for data services, but they do not cover every Foundry/AOAI control-plane or artifact flow.
+
+The canonical implemented firewall source for this estate is `alz-firewall-ops/FIREWALL-EGRESS-IMPLEMENTED.md`.
+
 ## Cost & Tiers
 
 **Baseline cost (cheap default):**
