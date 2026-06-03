@@ -85,6 +85,7 @@ module "spoke" {
     for name, subnet in local.subnets : name => {
       name                              = name
       address_prefix                    = subnet.prefix
+      default_outbound_access_enabled   = name == "snet-integration"
       private_endpoint_network_policies = subnet.pe_policies
       network_security_group            = { id = azurerm_network_security_group.this[subnet.nsg].id }
       delegations = subnet.delegation == null ? [] : [{

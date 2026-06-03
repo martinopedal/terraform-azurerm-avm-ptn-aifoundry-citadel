@@ -89,6 +89,7 @@ The canonical implemented firewall source for this estate is `alz-firewall-ops/F
 1. **MODELS** (`aoai_deployments`): Add more models, upgrade to `Provisioned` SKU for reserved throughput (PTU pricing, expensive), or use `GlobalStandard` for global routing (similar cost to Standard).
 2. **SECURITY**:
    - `public_network_access_enabled = true` — allow public access (not recommended; violates ALZ demo-private-by-default policy).
+   - The ACR Tasks integration subnet keeps Azure default outbound access enabled so the ACR-managed agent-pool bootstrap can reach required control-plane endpoints; workload services remain private-endpoint-first.
    - `disable_local_auth = false` — allow shared-key auth (legacy, not recommended).
    - `enable_cmk = true` — customer-managed encryption keys (requires Key Vault Premium, adds complexity).
    - `enable_private_endpoints = false` — disable private endpoints (saves ~$51/mo, not recommended for production).
