@@ -26,7 +26,7 @@ locals {
   resource_group_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
 
   subnets = {
-    # /24 layout: APIM /27, ACA /27, private endpoints /26, AGW /27, integration /27.
+    # /24 layout: APIM /27, ACA /27, private endpoints /26, AGW /27, integration /27, funcapp /26, agent /26.
     "snet-apim" = {
       prefix      = cidrsubnet(var.address_space, 3, 0)
       delegation  = null
@@ -56,6 +56,19 @@ locals {
       delegation  = null
       pe_policies = "Enabled"
       nsg         = "nsg-int"
+    }
+    # Citadel AI Gateway integration subnets (from citadel-v1 networking.bicep)
+    "snet-funcapp" = {
+      prefix      = cidrsubnet(var.address_space, 2, 2) # /26 for Function App VNet integration
+      delegation  = "Microsoft.Web/serverFarms"
+      pe_policies = "Enabled"
+      nsg         = "nsg-funcapp"
+    }
+    "snet-agent" = {
+      prefix      = cidrsubnet(var.address_space, 2, 3) # /26 for AI Foundry agent network injection
+      delegation  = "Microsoft.App/environments"
+      pe_policies = "Enabled"
+      nsg         = "nsg-agent"
     }
   }
 
@@ -120,4 +133,14 @@ output "integration_subnet_id" {
 
 output "acr_tasks_subnet_id" {
   value = module.spoke.subnets["snet-integration"].resource_id
+}
+
+output "funcapp_subnet_id" {
+  value       = module.spoke.subnets["snet-funcapp"].resource_id
+  description = "Function App VNet integration subnet ID (Citadel usage ingestion worker)"
+}
+
+output "agent_subnet_id" {
+  value       = module.spoke.subnets["snet-agent"].resource_id
+  description = "AI Foundry agent network injection subnet ID (Citadel agents)"
 }
