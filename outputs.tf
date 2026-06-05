@@ -18,6 +18,8 @@ output "apim_subnet_id" { value = module.networking.apim_subnet_id }
 output "aca_subnet_id" { value = module.networking.aca_subnet_id }
 output "pe_subnet_id" { value = module.networking.pe_subnet_id }
 
+output "log_analytics_workspace_id" { value = module.observability.log_analytics_workspace_id }
+
 output "key_vault_id" { value = module.data.key_vault_id }
 output "storage_account_id" { value = module.data.storage_account_id }
 output "storage_queue_endpoint" { value = module.data.storage_queue_endpoint }
