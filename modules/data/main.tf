@@ -1,4 +1,4 @@
-// Data-plane module — AVM KV, ACR, Storage, Storage Queue, Cosmos DB, AI Search.
+// Data-plane module — AVM KV, ACR, Storage, Storage Queue, Service Bus, Cosmos DB, AI Search.
 // All resources are private and attach PEs to hub-managed Private DNS zones.
 
 variable "location" { type = string }
@@ -39,7 +39,9 @@ locals {
   storage_name       = substr("st${local.flat_suffix}", 0, 24)
   cosmos_name        = substr("cosmos-${var.name_suffix}", 0, 44)
   search_name        = "srch-${var.name_suffix}"
+  service_bus_name   = substr("sb-${var.name_suffix}", 0, 50)
   storage_queue_name = "orchestrator-to-worker"
+  service_bus_queue  = "orchestrator-to-worker"
   resource_group_id  = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
 
   diag_all = {
@@ -48,6 +50,42 @@ locals {
       workspace_resource_id = var.log_analytics_workspace_id
       log_groups            = ["allLogs"]
       metric_categories     = ["AllMetrics"]
+    }
+  }
+}
+
+module "service_bus" {
+  source  = "Azure/avm-res-servicebus-namespace/azurerm"
+  version = "0.4.0"
+
+  enable_telemetry              = var.enable_telemetry
+  name                          = local.service_bus_name
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  sku                           = "Standard"
+  local_auth_enabled            = false
+  public_network_access_enabled = false
+  tags                          = var.tags
+  diagnostic_settings           = local.diag_all
+
+  queues = {
+    orchestrator_to_worker = {
+      name                                    = local.service_bus_queue
+      dead_lettering_on_message_expiration    = true
+      max_delivery_count                      = 10
+      requires_duplicate_detection            = false
+      requires_session                        = false
+      duplicate_detection_history_time_window = "PT10M"
+    }
+  }
+
+  private_endpoints = {
+    namespace = {
+      name                            = "pe-${local.service_bus_name}"
+      subnet_resource_id              = var.pe_subnet_id
+      private_service_connection_name = "psc-sb"
+      private_dns_zone_resource_ids   = [var.private_dns_zone_ids["privatelink.servicebus.windows.net"]]
+      tags                            = var.tags
     }
   }
 }
@@ -282,5 +320,8 @@ output "cosmos_account_id" { value = module.cosmos.resource_id }
 output "search_service_id" { value = module.search.resource_id }
 output "storage_queue_endpoint" { value = "https://${module.storage.name}.queue.core.windows.net" }
 output "storage_queue_name" { value = module.storage.queues["orchestrator_to_worker"].name }
+output "service_bus_namespace_id" { value = module.service_bus.resource_id }
+output "service_bus_fqdn" { value = "${local.service_bus_name}.servicebus.windows.net" }
+output "service_bus_queue_orchestrator_to_worker" { value = module.service_bus.resource_queues["orchestrator_to_worker"].name }
 output "acr_tasks_agent_pool_name" { value = azapi_resource.acr_agent_pool.name }
 output "acr_name" { value = module.acr.name }

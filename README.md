@@ -6,7 +6,7 @@ This module deploys a private-by-default Azure AI Foundry "Citadel" landing-zone
 - Azure OpenAI account and deployments
 - API Management gateway in classic internal VNet mode (`Developer_1` for non-prod, `Premium_2` with zones for prod)
 - Azure Container Apps managed environment and e2e job
-- Azure AI Search, Cosmos DB, Key Vault, Azure Container Registry, and a StorageV2 account with blob, file, and queue private endpoints
+- Azure AI Search, Cosmos DB, Key Vault, Azure Container Registry, Service Bus, and a StorageV2 account with blob, file, and queue private endpoints
 - Spoke VNet, NSGs, and carved subnets for APIM, ACA, private endpoints, App Gateway, and integration
 - Log Analytics workspace and Application Insights
 
@@ -31,6 +31,7 @@ flowchart LR
   PE --> Search[AI Search]
   PE --> Cosmos[Cosmos DB]
   PE --> Storage[Storage blob/file/queue]
+  PE --> SB[Service Bus queue]
   PE --> KV[Key Vault]
   PE --> ACR[Container Registry]
   ACA --> APIM
@@ -59,6 +60,7 @@ module "citadel" {
     "privatelink.openai.azure.com"       = azurerm_private_dns_zone.openai.id
     "privatelink.queue.core.windows.net" = azurerm_private_dns_zone.queue.id
     "privatelink.search.windows.net"     = azurerm_private_dns_zone.search.id
+    "privatelink.servicebus.windows.net" = azurerm_private_dns_zone.servicebus.id
     "privatelink.vaultcore.azure.net"    = azurerm_private_dns_zone.vault.id
   }
 
@@ -81,7 +83,7 @@ The canonical implemented firewall source for this estate is `alz-firewall-ops/F
 
 **Baseline cost (cheap default):**
 - Model deployment: single `gpt-4o-mini` (Standard, 10K TPM) = pay-per-token, minimal baseline (~$0.15/$0.60 per 1M tokens in/out)
-- Network security: private-by-default (private endpoints ~$7.30/mo each × 7 = ~$51/mo)
+- Network security: private-by-default (private endpoints ~$7.30/mo each × 8 = ~$58/mo)
 - Storage/Log retention: 30 days
 - No zone redundancy, no customer-managed keys
 
@@ -126,7 +128,7 @@ The canonical implemented firewall source for this estate is `alz-firewall-ops/F
 
 ## Outputs
 
-Key outputs include resource group names, VNet/subnet IDs, data-plane resource IDs, Storage Queue endpoint/name, Azure OpenAI endpoint, Foundry project endpoint, APIM gateway URL and principal ID, ACA environment ID, and runtime UAMI client IDs.
+Key outputs include resource group names, VNet/subnet IDs, data-plane resource IDs, Service Bus FQDN/queue, Storage Queue endpoint/name, Azure OpenAI endpoint, Foundry project endpoint, APIM gateway URL and principal ID, ACA environment ID, and runtime UAMI client IDs.
 
 ## AVM modules consumed
 
@@ -136,6 +138,7 @@ Key outputs include resource group names, VNet/subnet IDs, data-plane resource I
 | Private endpoint (Foundry hub) | `Azure/avm-res-network-privateendpoint/azurerm` | `0.2.0` |
 | Key Vault | `Azure/avm-res-keyvault-vault/azurerm` | `0.10.2` |
 | Storage account + blob/file/queue PEs | `Azure/avm-res-storage-storageaccount/azurerm` | `0.7.2` |
+| Service Bus namespace + queue + PE | `Azure/avm-res-servicebus-namespace/azurerm` | `0.4.0` |
 | Container Registry | `Azure/avm-res-containerregistry-registry/azurerm` | `0.5.1` |
 | Cosmos DB | `Azure/avm-res-documentdb-databaseaccount/azurerm` | `0.10.0` |
 | AI Search | `Azure/avm-res-search-searchservice/azurerm` | `0.2.0` |

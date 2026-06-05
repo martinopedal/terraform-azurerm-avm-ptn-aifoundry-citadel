@@ -23,6 +23,14 @@ variable "enable_telemetry" { type = bool }
 // R2 dependencies from other modules
 variable "storage_queue_endpoint" { type = string }
 variable "storage_queue_name" { type = string }
+variable "acr_id" { type = string }
+variable "service_bus_namespace_id" { type = string }
+variable "service_bus_queue_name" { type = string }
+variable "key_vault_id" { type = string }
+variable "foundry_project_id" {
+  description = "Foundry project resource ID for e2e Reader access."
+  type        = string
+}
 
 # tflint-ignore: terraform_unused_declarations
 variable "acr_login_server" {
@@ -69,6 +77,11 @@ terraform {
     azurerm = { source = "hashicorp/azurerm", version = "~> 4.0" }
     azapi   = { source = "Azure/azapi", version = "~> 2.0" }
   }
+}
+
+locals {
+  sb_namespace_name = element(split("/", var.service_bus_namespace_id), length(split("/", var.service_bus_namespace_id)) - 1)
+  service_bus_fqdn  = "${local.sb_namespace_name}.servicebus.windows.net"
 }
 
 // =====================================================================
@@ -120,6 +133,72 @@ resource "azurerm_user_assigned_identity" "e2e" {
   tags                = var.tags
 }
 
+resource "azurerm_role_assignment" "orchestrator_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.orchestrator.principal_id
+}
+
+resource "azurerm_role_assignment" "orchestrator_sb_sender" {
+  scope                = "${var.service_bus_namespace_id}/queues/${var.service_bus_queue_name}"
+  role_definition_name = "Azure Service Bus Data Sender"
+  principal_id         = azurerm_user_assigned_identity.orchestrator.principal_id
+}
+
+resource "azurerm_role_assignment" "orchestrator_kv_secrets" {
+  scope                = var.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.orchestrator.principal_id
+}
+
+resource "azurerm_role_assignment" "worker_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.worker.principal_id
+}
+
+resource "azurerm_role_assignment" "worker_sb_receiver" {
+  scope                = "${var.service_bus_namespace_id}/queues/${var.service_bus_queue_name}"
+  role_definition_name = "Azure Service Bus Data Receiver"
+  principal_id         = azurerm_user_assigned_identity.worker.principal_id
+}
+
+resource "azurerm_role_assignment" "worker_kv_secrets" {
+  scope                = var.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.worker.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_law_reader" {
+  scope                = var.log_analytics_workspace_id
+  role_definition_name = "Monitoring Reader"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_sb_sender" {
+  scope                = var.service_bus_namespace_id
+  role_definition_name = "Azure Service Bus Data Sender"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_sb_receiver" {
+  scope                = var.service_bus_namespace_id
+  role_definition_name = "Azure Service Bus Data Receiver"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_foundry_reader" {
+  scope                = var.foundry_project_id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
 // =====================================================================
 // R2: Container Apps (placeholder - requires actual container images)
 // =====================================================================
@@ -164,6 +243,14 @@ resource "azurerm_container_app" "orchestrator" {
       cpu    = 0.5
       memory = "1Gi"
 
+      env {
+        name  = "SERVICE_BUS_FQDN"
+        value = local.service_bus_fqdn
+      }
+      env {
+        name  = "SERVICE_BUS_QUEUE"
+        value = var.service_bus_queue_name
+      }
       env {
         name  = "STORAGE_QUEUE_ENDPOINT"
         value = var.storage_queue_endpoint
@@ -250,6 +337,14 @@ resource "azurerm_container_app_job" "e2e_runner" {
         value = var.log_analytics_workspace_id
       }
       env {
+        name  = "SERVICE_BUS_FQDN"
+        value = local.service_bus_fqdn
+      }
+      env {
+        name  = "SERVICE_BUS_QUEUE"
+        value = var.service_bus_queue_name
+      }
+      env {
         name  = "STORAGE_QUEUE_ENDPOINT"
         value = var.storage_queue_endpoint
       }
@@ -324,5 +419,3 @@ output "e2e_uami_resource_id" {
   value       = azurerm_user_assigned_identity.e2e.id
   description = "E2E runtime UAMI resource ID."
 }
-
-

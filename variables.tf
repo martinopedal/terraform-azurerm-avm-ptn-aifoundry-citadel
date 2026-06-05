@@ -51,7 +51,7 @@ variable "hub_vnet_resource_id" {
 
 variable "private_dns_zone_ids" {
   type        = map(string)
-  description = "Existing hub-managed Private DNS zone resource IDs keyed by zone name. The module never creates Private DNS zones. Required keys include privatelink.vaultcore.azure.net, privatelink.azurecr.io, privatelink.blob.core.windows.net, privatelink.file.core.windows.net, privatelink.queue.core.windows.net, privatelink.documents.azure.com, privatelink.search.windows.net, privatelink.openai.azure.com, privatelink.api.azureml.ms and privatelink.notebooks.azure.net."
+  description = "Existing hub-managed Private DNS zone resource IDs keyed by zone name. The module never creates Private DNS zones. Required keys include privatelink.vaultcore.azure.net, privatelink.azurecr.io, privatelink.blob.core.windows.net, privatelink.file.core.windows.net, privatelink.queue.core.windows.net, privatelink.servicebus.windows.net, privatelink.documents.azure.com, privatelink.search.windows.net, privatelink.openai.azure.com, privatelink.api.azureml.ms and privatelink.notebooks.azure.net."
 }
 
 variable "tags" {

@@ -20,6 +20,7 @@ variable "application_insights_instrumentation_key" {
   sensitive = true
 }
 variable "aoai_endpoint" { type = string }
+variable "aoai_resource_id" { type = string }
 variable "foundry_project_endpoint" { type = string }
 variable "tenant_id" { type = string }
 variable "tags" { type = map(string) }
@@ -30,6 +31,10 @@ terraform {
   required_providers {
     azurerm = { source = "hashicorp/azurerm", version = "~> 4.0" }
   }
+}
+
+locals {
+  cognitive_services_user_role_id = "/providers/Microsoft.Authorization/roleDefinitions/a97b65f3-24c7-4388-baec-2e87135dc908"
 }
 
 module "apim" {
@@ -94,6 +99,12 @@ resource "azurerm_api_management_logger" "appi" {
   }
 }
 
+resource "azurerm_role_assignment" "apim_to_aoai" {
+  scope              = var.aoai_resource_id
+  role_definition_id = local.cognitive_services_user_role_id
+  principal_id       = module.apim.workspace_identity.principal_id
+  principal_type     = "ServicePrincipal"
+}
 
 output "apim_name" { value = module.apim.name }
 output "apim_id" { value = module.apim.resource_id }
