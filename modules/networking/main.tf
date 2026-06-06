@@ -9,6 +9,7 @@ variable "hub_vnet_resource_id" {
   type    = string
   default = null
 }
+variable "dns_servers" { type = list(string) }
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
 
@@ -92,6 +93,7 @@ module "spoke" {
   location         = var.location
   parent_id        = local.resource_group_id
   address_space    = [var.address_space]
+  dns_servers      = { dns_servers = var.dns_servers }
   tags             = var.tags
 
   subnets = {

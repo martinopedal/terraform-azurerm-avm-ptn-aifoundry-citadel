@@ -49,6 +49,12 @@ variable "hub_vnet_resource_id" {
   description = "Optional hub VNet resource ID retained for consumers that coordinate peering outside this module. This module does not create hub peering."
 }
 
+variable "spoke_dns_servers" {
+  type        = list(string)
+  default     = ["10.0.0.4"]
+  description = "DNS servers assigned to the spoke VNet. Default points governed spokes at the hub Azure Firewall DNS proxy."
+}
+
 variable "private_dns_zone_ids" {
   type        = map(string)
   description = "Existing hub-managed Private DNS zone resource IDs keyed by zone name. The module never creates Private DNS zones. Required keys include privatelink.vaultcore.azure.net, privatelink.azurecr.io, privatelink.blob.core.windows.net, privatelink.file.core.windows.net, privatelink.queue.core.windows.net, privatelink.servicebus.windows.net, privatelink.documents.azure.com, privatelink.search.windows.net, privatelink.openai.azure.com, privatelink.api.azureml.ms and privatelink.notebooks.azure.net."

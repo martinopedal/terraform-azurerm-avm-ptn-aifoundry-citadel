@@ -32,6 +32,7 @@ module "networking" {
   name_suffix          = local.name_suffix
   address_space        = var.spoke_address_space
   hub_vnet_resource_id = var.hub_vnet_resource_id
+  dns_servers          = var.spoke_dns_servers
   enable_telemetry     = var.enable_telemetry
   tags                 = local.tags
 }
