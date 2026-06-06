@@ -38,6 +38,7 @@ module "citadel" {
     "privatelink.openai.azure.com"       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/privateDnsZones/privatelink.openai.azure.com"
     "privatelink.queue.core.windows.net" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/privateDnsZones/privatelink.queue.core.windows.net"
     "privatelink.search.windows.net"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/privateDnsZones/privatelink.search.windows.net"
+    "privatelink.servicebus.windows.net" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/privateDnsZones/privatelink.servicebus.windows.net"
     "privatelink.vaultcore.azure.net"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net"
   }
 

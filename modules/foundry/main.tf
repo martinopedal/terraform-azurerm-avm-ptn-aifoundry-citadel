@@ -84,8 +84,8 @@ resource "azapi_resource" "hub" {
       # Citadel agent network injection (optional)
       networkInjections = var.agent_subnet_id != null ? [
         {
-          scenario     = "agent"
-          subnetArmId  = var.agent_subnet_id
+          scenario      = "agent"
+          subnetArmId   = var.agent_subnet_id
           ipAddressType = "Private"
         }
       ] : []

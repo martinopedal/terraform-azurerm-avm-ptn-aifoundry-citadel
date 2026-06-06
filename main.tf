@@ -32,6 +32,7 @@ module "networking" {
   name_suffix          = local.name_suffix
   address_space        = var.spoke_address_space
   hub_vnet_resource_id = var.hub_vnet_resource_id
+  dns_servers          = var.spoke_dns_servers
   enable_telemetry     = var.enable_telemetry
   tags                 = local.tags
 }
@@ -112,6 +113,7 @@ module "gateway" {
   application_insights_id                  = module.observability.application_insights_id
   application_insights_instrumentation_key = module.observability.application_insights_instrumentation_key
   aoai_endpoint                            = module.aoai.endpoint
+  aoai_resource_id                         = module.aoai.account_id
   foundry_project_endpoint                 = module.foundry.project_endpoint
   tenant_id                                = data.azurerm_client_config.current.tenant_id
   enable_telemetry                         = var.enable_telemetry
@@ -128,11 +130,16 @@ module "compute" {
   log_analytics_workspace_id             = module.observability.log_analytics_workspace_id
   application_insights_connection_string = module.observability.application_insights_connection_string
   zone_redundant                         = var.enable_zone_redundancy
+  acr_id                                 = module.data.acr_id
   acr_login_server                       = module.data.acr_login_server
+  service_bus_namespace_id               = module.data.service_bus_namespace_id
+  service_bus_queue_name                 = module.data.service_bus_queue_orchestrator_to_worker
+  key_vault_id                           = module.data.key_vault_id
   storage_queue_endpoint                 = module.data.storage_queue_endpoint
   storage_queue_name                     = module.data.storage_queue_name
   apim_gateway_url                       = module.gateway.apim_gateway_url
   foundry_project_endpoint               = module.foundry.project_endpoint
+  foundry_project_id                     = module.foundry.project_id
   git_sha                                = var.git_sha
   env_name                               = var.environment
   enable_telemetry                       = var.enable_telemetry
