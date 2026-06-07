@@ -48,7 +48,7 @@ module "apim" {
   publisher_name            = "AI Platform Team"
   publisher_email           = "ai-platform@dnb.no"
   sku_name                  = var.apim_sku
-  zones                     = var.zones
+  zones                     = length(var.zones) > 0 ? var.zones : null
   virtual_network_type      = "Internal"
   virtual_network_subnet_id = var.apim_subnet_id
   managed_identities        = { system_assigned = true }

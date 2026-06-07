@@ -322,6 +322,6 @@ output "storage_queue_endpoint" { value = "https://${module.storage.name}.queue.
 output "storage_queue_name" { value = module.storage.queues["orchestrator_to_worker"].name }
 output "service_bus_namespace_id" { value = module.service_bus.resource_id }
 output "service_bus_fqdn" { value = "${local.service_bus_name}.servicebus.windows.net" }
-output "service_bus_queue_orchestrator_to_worker" { value = module.service_bus.resource_queues["orchestrator_to_worker"].name }
+output "service_bus_queue_orchestrator_to_worker" { value = module.service_bus.resource_queues["orchestrator-to-worker"].name }
 output "acr_tasks_agent_pool_name" { value = azapi_resource.acr_agent_pool.name }
 output "acr_name" { value = module.acr.name }
