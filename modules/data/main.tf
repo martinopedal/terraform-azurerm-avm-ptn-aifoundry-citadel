@@ -56,9 +56,9 @@ locals {
 
   deployer_uami_tag = try(var.tags.deployerUami, null)
   canonical_deployer_uami_tag = local.deployer_uami_tag == null ? null : replace(
-    replace(local.deployer_uami_tag, "/resourcegroups/", "/resourceGroups/"),
-    "/providers/microsoft.managedidentity/userassignedidentities/",
-    "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/"
+    replace(local.deployer_uami_tag, "resourcegroups", "resourceGroups"),
+    "providers/microsoft.managedidentity/userassignedidentities",
+    "providers/Microsoft.ManagedIdentity/userAssignedIdentities"
   )
   acr_agent_pool_tags = local.canonical_deployer_uami_tag == null ? var.tags : merge(var.tags, {
     deployerUami = local.canonical_deployer_uami_tag
