@@ -12,6 +12,11 @@ variable "hub_vnet_resource_id" {
 variable "dns_servers" { type = list(string) }
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
+variable "enable_extra_citadel_subnets" {
+  type        = bool
+  default     = true
+  description = "Create additional Citadel function/agent subnets. Disable when migrating an existing /24 spoke that already consumed those ranges."
+}
 
 terraform {
   required_version = ">= 1.12.0, < 2.0"
@@ -26,8 +31,8 @@ data "azurerm_client_config" "current" {}
 locals {
   resource_group_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
 
-  subnets = {
-    # /24 layout: APIM /27, ACA /27, private endpoints /26, AGW /27, integration /27, funcapp /26, agent /26.
+  base_subnets = {
+    # /24 layout: APIM /27, ACA /27, private endpoints /26, AGW /27, integration /27.
     "snet-apim" = {
       prefix      = cidrsubnet(var.address_space, 3, 0)
       delegation  = null
@@ -58,6 +63,9 @@ locals {
       pe_policies = "Enabled"
       nsg         = "nsg-int"
     }
+  }
+
+  extra_citadel_subnets = {
     # Citadel AI Gateway integration subnets (from citadel-v1 networking.bicep)
     "snet-funcapp" = {
       prefix      = cidrsubnet(var.address_space, 2, 2) # /26 for Function App VNet integration
@@ -73,7 +81,8 @@ locals {
     }
   }
 
-  nsgs = toset([for subnet in values(local.subnets) : subnet.nsg])
+  subnets = var.enable_extra_citadel_subnets ? merge(local.base_subnets, local.extra_citadel_subnets) : local.base_subnets
+  nsgs    = toset([for subnet in values(local.subnets) : subnet.nsg])
 }
 
 resource "azurerm_network_security_group" "this" {
@@ -138,11 +147,11 @@ output "acr_tasks_subnet_id" {
 }
 
 output "funcapp_subnet_id" {
-  value       = module.spoke.subnets["snet-funcapp"].resource_id
+  value       = try(module.spoke.subnets["snet-funcapp"].resource_id, null)
   description = "Function App VNet integration subnet ID (Citadel usage ingestion worker)"
 }
 
 output "agent_subnet_id" {
-  value       = module.spoke.subnets["snet-agent"].resource_id
+  value       = try(module.spoke.subnets["snet-agent"].resource_id, null)
   description = "AI Foundry agent network injection subnet ID (Citadel agents)"
 }

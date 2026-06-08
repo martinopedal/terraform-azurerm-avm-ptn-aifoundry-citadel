@@ -19,6 +19,19 @@ variable "zone_redundant" {
 }
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
+variable "workload_profiles" {
+  type = list(object({
+    name                  = string
+    workload_profile_type = string
+    minimum_count         = optional(number)
+    maximum_count         = optional(number)
+  }))
+  default = [{
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }]
+  description = "Container Apps Environment workload profiles."
+}
 
 // R2 dependencies from other modules
 variable "storage_queue_endpoint" { type = string }
@@ -102,11 +115,8 @@ module "managed_environment" {
     infrastructure_subnet_id = var.aca_subnet_id
     internal                 = true
   }
-  workload_profiles = [{
-    name                  = "Consumption"
-    workload_profile_type = "Consumption"
-  }]
-  tags = var.tags
+  workload_profiles = var.workload_profiles
+  tags              = var.tags
 }
 
 // =====================================================================

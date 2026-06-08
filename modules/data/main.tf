@@ -33,16 +33,17 @@ terraform {
 data "azurerm_client_config" "current" {}
 
 locals {
-  flat_suffix        = replace(var.name_suffix, "-", "")
-  kv_name            = substr("kv${local.flat_suffix}", 0, 24)
-  acr_name           = substr("acr${local.flat_suffix}", 0, 24)
-  storage_name       = substr("st${local.flat_suffix}", 0, 24)
-  cosmos_name        = substr("cosmos-${var.name_suffix}", 0, 44)
-  search_name        = "srch-${var.name_suffix}"
-  service_bus_name   = substr("sb-${var.name_suffix}", 0, 50)
-  storage_queue_name = "orchestrator-to-worker"
-  service_bus_queue  = "orchestrator-to-worker"
-  resource_group_id  = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
+  flat_suffix          = replace(var.name_suffix, "-", "")
+  kv_name              = substr("kv${local.flat_suffix}", 0, 24)
+  acr_name             = substr("acr${local.flat_suffix}", 0, 24)
+  storage_name         = substr("st${local.flat_suffix}", 0, 24)
+  foundry_storage_name = substr("stml${local.flat_suffix}", 0, 24)
+  cosmos_name          = substr("cosmos-${var.name_suffix}", 0, 44)
+  search_name          = "srch-${var.name_suffix}"
+  service_bus_name     = substr("sb-${var.name_suffix}", 0, 50)
+  storage_queue_name   = "orchestrator-to-worker"
+  service_bus_queue    = "orchestrator-to-worker"
+  resource_group_id    = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
 
   diag_all = {
     to_law = {
@@ -199,6 +200,37 @@ module "storage" {
   }
 }
 
+module "foundry_storage" {
+  source  = "Azure/avm-res-storage-storageaccount/azurerm"
+  version = "0.7.2"
+
+  enable_telemetry                = var.enable_telemetry
+  name                            = local.foundry_storage_name
+  parent_id                       = local.resource_group_id
+  location                        = var.location
+  account_kind                    = "StorageV2"
+  account_tier                    = "Standard"
+  account_replication_type        = "ZRS"
+  is_hns_enabled                  = false
+  allow_nested_items_to_be_public = false
+  shared_access_key_enabled       = false
+  min_tls_version                 = "TLS1_2"
+  public_network_access_enabled   = false
+  network_rules                   = { default_action = "Deny", bypass = ["AzureServices"] }
+  tags                            = var.tags
+
+  private_endpoints = {
+    blob = {
+      name                            = "pe-${local.foundry_storage_name}-blob"
+      subnet_resource_id              = var.pe_subnet_id
+      subresource_name                = "blob"
+      private_service_connection_name = "psc-blob"
+      private_dns_zone_resource_ids   = [var.private_dns_zone_ids["privatelink.blob.core.windows.net"]]
+      tags                            = var.tags
+    }
+  }
+}
+
 module "cosmos" {
   source  = "Azure/avm-res-documentdb-databaseaccount/azurerm"
   version = "0.10.0"
@@ -316,6 +348,7 @@ output "key_vault_uri" { value = module.key_vault.uri }
 output "acr_id" { value = module.acr.resource_id }
 output "acr_login_server" { value = module.acr.resource.login_server }
 output "storage_account_id" { value = module.storage.resource_id }
+output "foundry_storage_account_id" { value = module.foundry_storage.resource_id }
 output "cosmos_account_id" { value = module.cosmos.resource_id }
 output "search_service_id" { value = module.search.resource_id }
 output "storage_queue_endpoint" { value = "https://${module.storage.name}.queue.core.windows.net" }
