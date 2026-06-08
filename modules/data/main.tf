@@ -224,7 +224,7 @@ module "foundry_storage" {
       name                            = "pe-${local.foundry_storage_name}-blob"
       subnet_resource_id              = var.pe_subnet_id
       subresource_name                = "blob"
-      private_service_connection_name = "psc-blob"
+      private_service_connection_name = "psc-foundry-blob"
       private_dns_zone_resource_ids   = [var.private_dns_zone_ids["privatelink.blob.core.windows.net"]]
       tags                            = var.tags
     }

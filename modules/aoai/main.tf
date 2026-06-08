@@ -71,7 +71,7 @@ module "aoai" {
     to_law = {
       name                  = "to-law"
       workspace_resource_id = var.log_analytics_workspace_id
-      log_categories        = ["Audit", "RequestResponse"]
+      log_groups            = ["allLogs"]
       metric_categories     = ["AllMetrics"]
     }
   }
