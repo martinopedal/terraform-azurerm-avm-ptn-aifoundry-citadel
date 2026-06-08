@@ -91,7 +91,7 @@ module "foundry" {
   private_dns_zone_ids               = var.private_dns_zone_ids
   log_analytics_workspace_id         = module.observability.log_analytics_workspace_id
   associated_key_vault_id            = module.data.key_vault_id
-  associated_storage_account_id      = module.data.storage_account_id
+  associated_storage_account_id      = module.data.foundry_storage_account_id
   associated_container_registry_id   = module.data.acr_id
   associated_application_insights_id = module.observability.application_insights_id
   aoai_endpoint                      = module.aoai.endpoint
