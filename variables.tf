@@ -43,6 +43,26 @@ variable "spoke_address_space" {
   description = "Spoke VNet CIDR. The networking module carves APIM, ACA, PE, App Gateway and integration subnets from this CIDR."
 }
 
+variable "enable_extra_citadel_subnets" {
+  type        = bool
+  default     = true
+  description = "Create additional Citadel function/agent subnets. Disable when migrating an existing spoke whose /24 is already fully allocated."
+}
+
+variable "container_app_workload_profiles" {
+  type = list(object({
+    name                  = string
+    workload_profile_type = string
+    minimum_count         = optional(number)
+    maximum_count         = optional(number)
+  }))
+  default = [{
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }]
+  description = "Container Apps Environment workload profiles."
+}
+
 variable "hub_vnet_resource_id" {
   type        = string
   default     = null

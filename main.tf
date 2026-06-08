@@ -27,14 +27,15 @@ resource "azurerm_resource_group" "compute" {
 module "networking" {
   source = "./modules/networking"
 
-  location             = var.location
-  resource_group_name  = azurerm_resource_group.network.name
-  name_suffix          = local.name_suffix
-  address_space        = var.spoke_address_space
-  hub_vnet_resource_id = var.hub_vnet_resource_id
-  dns_servers          = var.spoke_dns_servers
-  enable_telemetry     = var.enable_telemetry
-  tags                 = local.tags
+  location                     = var.location
+  resource_group_name          = azurerm_resource_group.network.name
+  name_suffix                  = local.name_suffix
+  address_space                = var.spoke_address_space
+  hub_vnet_resource_id         = var.hub_vnet_resource_id
+  dns_servers                  = var.spoke_dns_servers
+  enable_extra_citadel_subnets = var.enable_extra_citadel_subnets
+  enable_telemetry             = var.enable_telemetry
+  tags                         = local.tags
 }
 
 module "observability" {
@@ -130,6 +131,7 @@ module "compute" {
   log_analytics_workspace_id             = module.observability.log_analytics_workspace_id
   application_insights_connection_string = module.observability.application_insights_connection_string
   zone_redundant                         = var.enable_zone_redundancy
+  workload_profiles                      = var.container_app_workload_profiles
   acr_id                                 = module.data.acr_id
   acr_login_server                       = module.data.acr_login_server
   service_bus_namespace_id               = module.data.service_bus_namespace_id
