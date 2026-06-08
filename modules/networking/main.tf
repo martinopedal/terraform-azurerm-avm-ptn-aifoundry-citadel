@@ -93,6 +93,34 @@ resource "azurerm_network_security_group" "this" {
   tags                = var.tags
 }
 
+resource "azurerm_network_security_rule" "apim_management" {
+  name                        = "Allow-ApiManagement-ControlPlane-3443"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3443"
+  source_address_prefix       = "ApiManagement"
+  destination_address_prefix  = "VirtualNetwork"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.this["nsg-apim"].name
+}
+
+resource "azurerm_network_security_rule" "apim_load_balancer" {
+  name                        = "Allow-AzureLoadBalancer-6390"
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "6390"
+  source_address_prefix       = "AzureLoadBalancer"
+  destination_address_prefix  = "VirtualNetwork"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.this["nsg-apim"].name
+}
+
 module "spoke" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "0.17.1"
