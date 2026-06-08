@@ -341,7 +341,7 @@ resource "azurerm_container_app_job" "e2e_runner" {
   template {
     container {
       name   = "e2e"
-      image  = "mcr.microsoft.com/azurelinux/base/python:3.13"
+      image  = "mcr.microsoft.com/azure-cli:latest"
       cpu    = 0.5
       memory = "1Gi"
 
