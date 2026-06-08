@@ -140,11 +140,15 @@ module "acr" {
   resource_group_name           = var.resource_group_name
   sku                           = var.acr_sku
   admin_enabled                 = false
-  public_network_access_enabled = false
+  public_network_access_enabled = true
   zone_redundancy_enabled       = true
   network_rule_bypass_option    = "AzureServices"
-  tags                          = var.tags
-  diagnostic_settings           = local.diag_all
+  network_rule_set = {
+    default_action = "Deny"
+    ip_rule        = []
+  }
+  tags                = var.tags
+  diagnostic_settings = local.diag_all
 
   private_endpoints = {
     registry = {
