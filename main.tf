@@ -118,7 +118,7 @@ module "gateway" {
   foundry_project_endpoint                 = module.foundry.project_endpoint
   tenant_id                                = data.azurerm_client_config.current.tenant_id
   enable_telemetry                         = var.enable_telemetry
-  tags                                     = local.tags
+  tags                                     = local.gateway_tags
 }
 
 module "compute" {
