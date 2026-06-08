@@ -218,6 +218,7 @@ module "foundry_storage" {
   public_network_access_enabled   = false
   network_rules                   = { default_action = "Deny", bypass = ["AzureServices"] }
   tags                            = var.tags
+  diagnostic_settings             = local.diag_all
 
   private_endpoints = {
     blob = {
