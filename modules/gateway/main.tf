@@ -33,8 +33,9 @@ terraform {
   }
 }
 
+data "azurerm_client_config" "current" {}
 locals {
-  cognitive_services_user_role_id = "/providers/Microsoft.Authorization/roleDefinitions/a97b65f3-24c7-4388-baec-2e87135dc908"
+  cognitive_services_user_role_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/a97b65f3-24c7-4388-baec-2e87135dc908"
 }
 
 module "apim" {
