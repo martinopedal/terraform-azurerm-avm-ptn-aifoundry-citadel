@@ -98,8 +98,8 @@ locals {
   cae_deployer_uami_tag = try(
     replace(
       var.tags.deployerUami,
-      "/providers/microsoft.managedidentity/userassignedidentities/",
-      "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/"
+      "providers/microsoft.managedidentity/userassignedidentities",
+      "providers/Microsoft.ManagedIdentity/userAssignedIdentities"
     ),
     null
   )
