@@ -95,6 +95,17 @@ terraform {
 locals {
   sb_namespace_name = element(split("/", var.service_bus_namespace_id), length(split("/", var.service_bus_namespace_id)) - 1)
   service_bus_fqdn  = "${local.sb_namespace_name}.servicebus.windows.net"
+  cae_deployer_uami_tag = try(
+    replace(
+      var.tags.deployerUami,
+      "/providers/microsoft.managedidentity/userassignedidentities/",
+      "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/"
+    ),
+    null
+  )
+  managed_environment_tags = local.cae_deployer_uami_tag == null ? var.tags : merge(var.tags, {
+    deployerUami = local.cae_deployer_uami_tag
+  })
 }
 
 // =====================================================================
@@ -116,7 +127,7 @@ module "managed_environment" {
     internal                 = true
   }
   workload_profiles = var.workload_profiles
-  tags              = var.tags
+  tags              = local.managed_environment_tags
 }
 
 // =====================================================================

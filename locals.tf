@@ -21,4 +21,13 @@ locals {
     { environment = var.environment },
     var.network_group_tag == null ? {} : { network-group = var.network_group_tag },
   )
+  deployer_uami_tag = try(local.tags.deployerUami, null)
+  canonical_deployer_uami_tag = local.deployer_uami_tag == null ? null : replace(
+    replace(local.deployer_uami_tag, "/resourcegroups/", "/resourceGroups/"),
+    "/providers/microsoft.managedidentity/userassignedidentities/",
+    "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/"
+  )
+  gateway_tags = local.canonical_deployer_uami_tag == null ? local.tags : merge(local.tags, {
+    deployerUami = local.canonical_deployer_uami_tag
+  })
 }

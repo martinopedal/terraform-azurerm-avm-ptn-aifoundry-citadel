@@ -150,8 +150,7 @@ resource "azurerm_monitor_diagnostic_setting" "hub" {
   target_resource_id         = azapi_resource.hub.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
 
-  enabled_log { category = "AmlComputeClusterEvent" }
-  enabled_log { category = "AmlComputeJobEvent" }
+  enabled_log { category_group = "allLogs" }
   enabled_metric { category = "AllMetrics" }
 }
 
@@ -226,5 +225,4 @@ output "project_endpoint" {
 output "aoai_connection_name" {
   value = azapi_resource.aoai_connection.name
 }
-
 

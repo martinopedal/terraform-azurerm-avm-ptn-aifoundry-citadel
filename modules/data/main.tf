@@ -53,6 +53,16 @@ locals {
       metric_categories     = ["AllMetrics"]
     }
   }
+
+  deployer_uami_tag = try(var.tags.deployerUami, null)
+  canonical_deployer_uami_tag = local.deployer_uami_tag == null ? null : replace(
+    replace(local.deployer_uami_tag, "/resourcegroups/", "/resourceGroups/"),
+    "/providers/microsoft.managedidentity/userassignedidentities/",
+    "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/"
+  )
+  acr_agent_pool_tags = local.canonical_deployer_uami_tag == null ? var.tags : merge(var.tags, {
+    deployerUami = local.canonical_deployer_uami_tag
+  })
 }
 
 module "service_bus" {
@@ -332,7 +342,7 @@ resource "azapi_resource" "acr_agent_pool" {
   name      = "acrtasks-pool"
   parent_id = module.acr.resource_id
   location  = var.location
-  tags      = var.tags
+  tags      = local.acr_agent_pool_tags
 
   body = {
     properties = {
