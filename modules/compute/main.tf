@@ -83,6 +83,12 @@ variable "e2e_job_image" {
   default     = "mcr.microsoft.com/azure-cli:latest"
 }
 
+variable "enable_e2e_job" {
+  description = "Enable creation of the e2e test Container App Job. Set to false to skip e2e job deployment (useful when troubleshooting DNS/networking issues)."
+  type        = bool
+  default     = true
+}
+
 # tflint-ignore: terraform_unused_declarations
 variable "env_name" {
   description = "Environment name for container image tags (consumed when Container Apps uncommented)"
@@ -154,6 +160,8 @@ resource "azurerm_user_assigned_identity" "worker" {
 }
 
 resource "azurerm_user_assigned_identity" "e2e" {
+  count = var.enable_e2e_job ? 1 : 0
+
   name                = "uami-e2e-${var.name_suffix}"
   location            = var.location
   resource_group_name = var.resource_group_name
@@ -197,33 +205,43 @@ resource "azurerm_role_assignment" "worker_kv_secrets" {
 }
 
 resource "azurerm_role_assignment" "e2e_acr_pull" {
+  count = var.enable_e2e_job ? 1 : 0
+
   scope                = var.acr_id
   role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+  principal_id         = azurerm_user_assigned_identity.e2e[0].principal_id
 }
 
 resource "azurerm_role_assignment" "e2e_law_reader" {
+  count = var.enable_e2e_job ? 1 : 0
+
   scope                = var.log_analytics_workspace_id
   role_definition_name = "Monitoring Reader"
-  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+  principal_id         = azurerm_user_assigned_identity.e2e[0].principal_id
 }
 
 resource "azurerm_role_assignment" "e2e_sb_sender" {
+  count = var.enable_e2e_job ? 1 : 0
+
   scope                = var.service_bus_namespace_id
   role_definition_name = "Azure Service Bus Data Sender"
-  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+  principal_id         = azurerm_user_assigned_identity.e2e[0].principal_id
 }
 
 resource "azurerm_role_assignment" "e2e_sb_receiver" {
+  count = var.enable_e2e_job ? 1 : 0
+
   scope                = var.service_bus_namespace_id
   role_definition_name = "Azure Service Bus Data Receiver"
-  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+  principal_id         = azurerm_user_assigned_identity.e2e[0].principal_id
 }
 
 resource "azurerm_role_assignment" "e2e_foundry_reader" {
+  count = var.enable_e2e_job ? 1 : 0
+
   scope                = var.foundry_project_id
   role_definition_name = "Reader"
-  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+  principal_id         = azurerm_user_assigned_identity.e2e[0].principal_id
 }
 
 // =====================================================================
@@ -320,6 +338,8 @@ resource "azurerm_container_app" "orchestrator" {
 // R3: E2E Container Apps Job (in-spoke testing)
 // =====================================================================
 resource "azurerm_container_app_job" "e2e_runner" {
+  count = var.enable_e2e_job ? 1 : 0
+
   name                         = "e2e-runner"
   resource_group_name          = var.resource_group_name
   location                     = var.location
@@ -336,12 +356,12 @@ resource "azurerm_container_app_job" "e2e_runner" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.e2e.id]
+    identity_ids = [azurerm_user_assigned_identity.e2e[0].id]
   }
 
   registry {
     server   = var.acr_login_server
-    identity = azurerm_user_assigned_identity.e2e.id
+    identity = azurerm_user_assigned_identity.e2e[0].id
   }
 
   template {
@@ -350,10 +370,9 @@ resource "azurerm_container_app_job" "e2e_runner" {
       image  = var.e2e_job_image
       cpu    = 0.5
       memory = "1Gi"
-
       env {
         name  = "AZURE_CLIENT_ID"
-        value = azurerm_user_assigned_identity.e2e.client_id
+        value = azurerm_user_assigned_identity.e2e[0].client_id
       }
       env {
         name  = "APIM_GATEWAY_URL"
@@ -428,8 +447,8 @@ output "worker_app_name" {
 }
 
 output "e2e_job_name" {
-  value       = azurerm_container_app_job.e2e_runner.name
-  description = "E2E Container Apps Job name."
+  value       = var.enable_e2e_job ? azurerm_container_app_job.e2e_runner[0].name : null
+  description = "E2E Container Apps Job name (if enabled)."
 }
 
 output "e2e_job_resource_group" {
@@ -438,11 +457,11 @@ output "e2e_job_resource_group" {
 }
 
 output "e2e_uami_client_id" {
-  value       = azurerm_user_assigned_identity.e2e.client_id
-  description = "E2E runtime UAMI client ID (for DefaultAzureCredential via AZURE_CLIENT_ID env var)."
+  value       = var.enable_e2e_job ? azurerm_user_assigned_identity.e2e[0].client_id : null
+  description = "E2E runtime UAMI client ID (for DefaultAzureCredential via AZURE_CLIENT_ID env var) (if enabled)."
 }
 
 output "e2e_uami_resource_id" {
-  value       = azurerm_user_assigned_identity.e2e.id
-  description = "E2E runtime UAMI resource ID."
+  value       = var.enable_e2e_job ? azurerm_user_assigned_identity.e2e[0].id : null
+  description = "E2E runtime UAMI resource ID (if enabled)."
 }
