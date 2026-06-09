@@ -27,10 +27,30 @@ output "aoai_endpoint" { value = module.aoai.endpoint }
 output "foundry_project_id" { value = module.foundry.project_id }
 output "foundry_project_endpoint" { value = module.foundry.project_endpoint }
 
-output "apim_id" { value = module.gateway.apim_id }
-output "apim_name" { value = module.gateway.apim_name }
-output "apim_gateway_url" { value = module.gateway.apim_gateway_url }
-output "apim_principal_id" { value = module.gateway.apim_principal_id }
+output "apim_id" {
+  description = "APIM resource ID. Null when gateway_mode = citadel-front."
+  value       = var.gateway_mode == "bundled" ? module.gateway[0].apim_id : null
+}
+
+output "apim_name" {
+  description = "APIM service name. Null when gateway_mode = citadel-front."
+  value       = var.gateway_mode == "bundled" ? module.gateway[0].apim_name : null
+}
+
+output "apim_gateway_url" {
+  description = "APIM gateway URL. Null when gateway_mode = citadel-front."
+  value       = var.gateway_mode == "bundled" ? module.gateway[0].apim_gateway_url : null
+}
+
+output "apim_principal_id" {
+  description = "APIM managed identity principal ID. Null when gateway_mode = citadel-front."
+  value       = var.gateway_mode == "bundled" ? module.gateway[0].apim_principal_id : null
+}
+
+output "gateway_mode" {
+  description = "Gateway deployment mode (bundled or citadel-front)."
+  value       = var.gateway_mode
+}
 
 output "container_apps_env_id" { value = module.compute.container_apps_env_id }
 output "container_apps_env_name" { value = module.compute.container_apps_env_name }

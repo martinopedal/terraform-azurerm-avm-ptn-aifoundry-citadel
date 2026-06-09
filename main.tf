@@ -95,6 +95,7 @@ module "foundry" {
 }
 
 module "gateway" {
+  count  = var.gateway_mode == "bundled" ? 1 : 0
   source = "./modules/gateway"
 
   location                                 = var.location
@@ -126,7 +127,8 @@ module "compute" {
   acr_login_server                       = module.data.acr_login_server
   storage_queue_endpoint                 = module.data.storage_queue_endpoint
   storage_queue_name                     = module.data.storage_queue_name
-  apim_gateway_url                       = module.gateway.apim_gateway_url
+  # apim_gateway_url is only relevant in bundled mode; null otherwise
+  apim_gateway_url                       = var.gateway_mode == "bundled" ? module.gateway[0].apim_gateway_url : null
   foundry_project_endpoint               = module.foundry.project_endpoint
   git_sha                                = var.git_sha
   env_name                               = var.environment

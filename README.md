@@ -4,13 +4,98 @@ This module deploys a private-by-default Azure AI Foundry "Citadel" landing-zone
 
 - Azure AI Foundry hub and project using AzAPI (`Microsoft.MachineLearningServices/workspaces@2024-10-01-preview`)
 - Azure OpenAI account and deployments
-- API Management gateway in classic internal VNet mode (`Developer_1` for non-prod, `Premium_2` with zones for prod)
+- **OPTIONAL:** API Management gateway in classic internal VNet mode (`Developer_1` for non-prod, `Premium_2` with zones for prod) — controlled by `gateway_mode` variable
 - Azure Container Apps managed environment and e2e job
 - Azure AI Search, Cosmos DB, Key Vault, Azure Container Registry, and a StorageV2 account with blob, file, and queue private endpoints
 - Spoke VNet, NSGs, and carved subnets for APIM, ACA, private endpoints, App Gateway, and integration
 - Log Analytics workspace and Application Insights
 
 The module does **not** create hub Private DNS zones, hub peering, Azure Policy, AVNM configuration, or broad RBAC/governance assignments. Consumers provide existing Private DNS zone IDs and handle platform governance outside this module.
+
+## Gateway Modes
+
+The module supports **two deployment architectures** via the `gateway_mode` variable:
+
+### Mode 1: Bundled (Default)
+
+**`gateway_mode = "bundled"`** (default)
+
+Deploys a **self-contained** AI Foundry platform with its own internal APIM gateway. All components (gateway + backend) are deployed together in a single module call.
+
+```
+Client → Internal APIM (apim-<name>-<env>-<location>)
+         ↓
+         AOAI + AI Foundry Hub/Project
+```
+
+**Use when:**
+- You want a simple, self-contained deployment
+- You don't need centralized gateway governance across multiple foundry instances
+- You're deploying a single foundry use case
+
+**Example:**
+```hcl
+module "citadel" {
+  source = "github.com/martinopedal/terraform-azurerm-avm-ptn-aifoundry-citadel?ref=v0.3.0"
+
+  name_prefix         = "foundry"
+  environment         = "dev"
+  location            = "swedencentral"
+  gateway_mode        = "bundled"  # Explicit (or omit, this is default)
+  
+  # ... other required variables
+}
+```
+
+### Mode 2: Citadel-Front (Separated)
+
+**`gateway_mode = "citadel-front"`**
+
+Deploys **backend-only** (AOAI + AI Foundry + data + compute), **no internal APIM**. Designed to be fronted by an **external Citadel AI Hub Gateway** deployed separately via `terraform-azurerm-avm-ptn-aifoundry-citadel-gateway` module.
+
+```
+Client → External Citadel Gateway (apim-citadel-<location>)
+         ↓
+         Multiple Foundry Backends (AOAI + AI Foundry)
+```
+
+**Use when:**
+- You have multiple foundry instances and want a single centralized gateway
+- You need centralized governance, cost tracking, and routing across all backends
+- You want to separate gateway lifecycle from backend lifecycle
+
+**Example:**
+```hcl
+# 1. Deploy foundry backend (no internal APIM)
+module "foundry_backend" {
+  source = "github.com/martinopedal/terraform-azurerm-avm-ptn-aifoundry-citadel?ref=v0.3.0"
+
+  name_prefix         = "foundry"
+  environment         = "dev"
+  location            = "swedencentral"
+  gateway_mode        = "citadel-front"  # Backend-only
+  
+  # ... other required variables
+}
+
+# 2. Deploy external Citadel gateway (separately)
+module "citadel_gateway" {
+  source = "github.com/martinopedal/terraform-azurerm-avm-ptn-aifoundry-citadel-gateway?ref=v0.2.0"
+
+  location            = "swedencentral"
+  # Wire to foundry backend via outputs
+  existing_aoai_endpoint           = module.foundry_backend.aoai_endpoint
+  existing_foundry_project_endpoint = module.foundry_backend.foundry_project_endpoint
+  
+  # ... other gateway config
+}
+```
+
+**Outputs for wiring:**
+When `gateway_mode = "citadel-front"`, the module outputs:
+- `aoai_endpoint` — AOAI endpoint URL for gateway backend configuration
+- `foundry_project_endpoint` — AI Foundry project endpoint for gateway backend configuration
+- `apim_id`, `apim_name`, `apim_gateway_url`, `apim_principal_id` — All **null** (no internal APIM deployed)
 
 ## Naming/provider rationale
 

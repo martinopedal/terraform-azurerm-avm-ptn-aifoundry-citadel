@@ -77,3 +77,18 @@ variable "git_sha" {
   default     = "latest"
   description = "Default container image tag for placeholder Container Apps/Jobs."
 }
+
+variable "gateway_mode" {
+  type        = string
+  default     = "bundled"
+  description = <<-EOT
+    Gateway deployment mode:
+    - "bundled" (default): Deploy internal APIM gateway with the foundry backend. Self-contained, single-module deployment.
+    - "citadel-front": Deploy backend-only (AOAI + AI Foundry + data + compute), no internal APIM. Designed to be fronted by an external Citadel AI Hub Gateway (deployed separately via terraform-azurerm-avm-ptn-aifoundry-citadel-gateway). When using citadel-front mode, the module outputs aoai_endpoint and foundry_project_endpoint for wiring to the external gateway.
+  EOT
+
+  validation {
+    condition     = contains(["bundled", "citadel-front"], var.gateway_mode)
+    error_message = "gateway_mode must be either 'bundled' or 'citadel-front'."
+  }
+}
