@@ -6,7 +6,7 @@ This module deploys a private-by-default Azure AI Foundry "Citadel" landing-zone
 - Azure OpenAI account and deployments
 - **OPTIONAL:** API Management gateway in classic internal VNet mode (`Developer_1` for non-prod, `Premium_2` with zones for prod) — controlled by `gateway_mode` variable
 - Azure Container Apps managed environment and e2e job
-- Azure AI Search, Cosmos DB, Key Vault, Azure Container Registry, and a StorageV2 account with blob, file, and queue private endpoints
+- Azure AI Search, Cosmos DB, Key Vault, Azure Container Registry, Service Bus, and a StorageV2 account with blob, file, and queue private endpoints
 - Spoke VNet, NSGs, and carved subnets for APIM, ACA, private endpoints, App Gateway, and integration
 - Log Analytics workspace and Application Insights
 
@@ -116,6 +116,7 @@ flowchart LR
   PE --> Search[AI Search]
   PE --> Cosmos[Cosmos DB]
   PE --> Storage[Storage blob/file/queue]
+  PE --> SB[Service Bus queue]
   PE --> KV[Key Vault]
   PE --> ACR[Container Registry]
   ACA --> APIM
@@ -144,6 +145,7 @@ module "citadel" {
     "privatelink.openai.azure.com"       = azurerm_private_dns_zone.openai.id
     "privatelink.queue.core.windows.net" = azurerm_private_dns_zone.queue.id
     "privatelink.search.windows.net"     = azurerm_private_dns_zone.search.id
+    "privatelink.servicebus.windows.net" = azurerm_private_dns_zone.servicebus.id
     "privatelink.vaultcore.azure.net"    = azurerm_private_dns_zone.vault.id
   }
 
@@ -155,6 +157,36 @@ module "citadel" {
 ```
 
 See `examples/default` for a complete syntactic example.
+
+## Network egress requirements
+
+Force-tunneled ALZ spokes route residual AI Foundry, Azure OpenAI, portal callback, model artifact, and shared Azure control-plane egress through the hub Azure Firewall. Open the workload-specific FQDNs in [EGRESS.md](EGRESS.md) before deploying private Citadel spokes; private endpoints remain the primary path for data services, but they do not cover every Foundry/AOAI control-plane or artifact flow.
+
+The canonical implemented firewall source for this estate is `alz-firewall-ops/FIREWALL-EGRESS-IMPLEMENTED.md`.
+
+## Cost & Tiers
+
+**Baseline cost (cheap default):**
+- Model deployment: single `gpt-4o-mini` (Standard, 10K TPM) = pay-per-token, minimal baseline (~$0.15/$0.60 per 1M tokens in/out)
+- Network security: private-by-default (private endpoints ~$7.30/mo each × 8 = ~$58/mo)
+- Storage/Log retention: 30 days
+- No zone redundancy, no customer-managed keys
+
+**Opt-in hardening/scale levers:**
+1. **MODELS** (`aoai_deployments`): Add more models, upgrade to `Provisioned` SKU for reserved throughput (PTU pricing, expensive), or use `GlobalStandard` for global routing (similar cost to Standard).
+2. **SECURITY**:
+   - `public_network_access_enabled = true` — allow public access (not recommended; violates ALZ demo-private-by-default policy).
+   - The ACR Tasks integration subnet keeps Azure default outbound access enabled so the ACR-managed agent-pool bootstrap can reach required control-plane endpoints; workload services remain private-endpoint-first.
+   - `disable_local_auth = false` — allow shared-key auth (legacy, not recommended).
+   - `enable_cmk = true` — customer-managed encryption keys (requires Key Vault Premium, adds complexity).
+   - `enable_private_endpoints = false` — disable private endpoints (saves ~$51/mo, not recommended for production).
+3. **RELIABILITY**:
+   - `enable_zone_redundancy = true` — zone redundancy for ACA (+50% cost) and APIM Premium (included in SKU). Note: AOAI and Foundry zone redundancy is region-dependent and not currently configured by this module.
+   - `diagnostic_retention_days = 90` (or 180, 365) — longer retention for compliance (incurs additional storage cost).
+
+**SKU couplings:**
+- Zone redundancy for APIM requires `environment = "prod"` (Premium_2 SKU); Developer_1 does not support zones.
+- Customer-managed keys require Key Vault Premium SKU (the module does not currently provision CMK wiring; this is a future enhancement).
 
 ## Inputs
 
@@ -171,10 +203,17 @@ See `examples/default` for a complete syntactic example.
 | `network_group_tag` | `string` | `null` | Optional `network-group` tag value for tag-driven AVNM membership. |
 | `enable_telemetry` | `bool` | `true` | Passed to all consumed AVM modules. |
 | `git_sha` | `string` | `"latest"` | Placeholder container image tag. |
+| **`aoai_deployments`** | `list(object)` | single `gpt-4o-mini` | AOAI model deployments (name, model, version, sku_type, capacity). Default = cheap baseline. |
+| **`enable_private_endpoints`** | `bool` | `true` | Enable private endpoints for all services. Default true (private-by-default ALZ posture). |
+| **`public_network_access_enabled`** | `bool` | `false` | Allow public network access to Foundry and AOAI. Default false (ALZ demo default). |
+| **`disable_local_auth`** | `bool` | `true` | Disable shared-key auth on AOAI (AAD-only). Recommended for production. |
+| **`enable_cmk`** | `bool` | `false` | Enable customer-managed key encryption (requires Key Vault Premium, not yet wired). |
+| **`enable_zone_redundancy`** | `bool` | `false` | Enable zone redundancy for ACA and APIM Premium. Default false (cheap). |
+| **`diagnostic_retention_days`** | `number` | `30` | Diagnostic log retention in days. Default 30 (cheap). Increase for compliance. |
 
 ## Outputs
 
-Key outputs include resource group names, VNet/subnet IDs, data-plane resource IDs, Storage Queue endpoint/name, Azure OpenAI endpoint, Foundry project endpoint, APIM gateway URL and principal ID, ACA environment ID, and runtime UAMI client IDs.
+Key outputs include resource group names, VNet/subnet IDs, data-plane resource IDs, Service Bus FQDN/queue, Storage Queue endpoint/name, Azure OpenAI endpoint, Foundry project endpoint, APIM gateway URL and principal ID, ACA environment ID, and runtime UAMI client IDs.
 
 ## AVM modules consumed
 
@@ -184,6 +223,7 @@ Key outputs include resource group names, VNet/subnet IDs, data-plane resource I
 | Private endpoint (Foundry hub) | `Azure/avm-res-network-privateendpoint/azurerm` | `0.2.0` |
 | Key Vault | `Azure/avm-res-keyvault-vault/azurerm` | `0.10.2` |
 | Storage account + blob/file/queue PEs | `Azure/avm-res-storage-storageaccount/azurerm` | `0.7.2` |
+| Service Bus namespace + queue + PE | `Azure/avm-res-servicebus-namespace/azurerm` | `0.4.0` |
 | Container Registry | `Azure/avm-res-containerregistry-registry/azurerm` | `0.5.1` |
 | Cosmos DB | `Azure/avm-res-documentdb-databaseaccount/azurerm` | `0.10.0` |
 | AI Search | `Azure/avm-res-search-searchservice/azurerm` | `0.2.0` |

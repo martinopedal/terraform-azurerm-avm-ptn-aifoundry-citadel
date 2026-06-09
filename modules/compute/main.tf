@@ -19,10 +19,31 @@ variable "zone_redundant" {
 }
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
+variable "workload_profiles" {
+  type = list(object({
+    name                  = string
+    workload_profile_type = string
+    minimum_count         = optional(number)
+    maximum_count         = optional(number)
+  }))
+  default = [{
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }]
+  description = "Container Apps Environment workload profiles."
+}
 
 // R2 dependencies from other modules
 variable "storage_queue_endpoint" { type = string }
 variable "storage_queue_name" { type = string }
+variable "acr_id" { type = string }
+variable "service_bus_namespace_id" { type = string }
+variable "service_bus_queue_name" { type = string }
+variable "key_vault_id" { type = string }
+variable "foundry_project_id" {
+  description = "Foundry project resource ID for e2e Reader access."
+  type        = string
+}
 
 # tflint-ignore: terraform_unused_declarations
 variable "acr_login_server" {
@@ -71,6 +92,22 @@ terraform {
   }
 }
 
+locals {
+  sb_namespace_name = element(split("/", var.service_bus_namespace_id), length(split("/", var.service_bus_namespace_id)) - 1)
+  service_bus_fqdn  = "${local.sb_namespace_name}.servicebus.windows.net"
+  cae_deployer_uami_tag = try(
+    replace(
+      var.tags.deployerUami,
+      "providers/microsoft.managedidentity/userassignedidentities",
+      "providers/Microsoft.ManagedIdentity/userAssignedIdentities"
+    ),
+    null
+  )
+  managed_environment_tags = local.cae_deployer_uami_tag == null ? var.tags : merge(var.tags, {
+    deployerUami = local.cae_deployer_uami_tag
+  })
+}
+
 // =====================================================================
 // Container Apps Environment
 // =====================================================================
@@ -89,11 +126,8 @@ module "managed_environment" {
     infrastructure_subnet_id = var.aca_subnet_id
     internal                 = true
   }
-  workload_profiles = [{
-    name                  = "Consumption"
-    workload_profile_type = "Consumption"
-  }]
-  tags = var.tags
+  workload_profiles = var.workload_profiles
+  tags              = local.managed_environment_tags
 }
 
 // =====================================================================
@@ -118,6 +152,72 @@ resource "azurerm_user_assigned_identity" "e2e" {
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags
+}
+
+resource "azurerm_role_assignment" "orchestrator_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.orchestrator.principal_id
+}
+
+resource "azurerm_role_assignment" "orchestrator_sb_sender" {
+  scope                = "${var.service_bus_namespace_id}/queues/${var.service_bus_queue_name}"
+  role_definition_name = "Azure Service Bus Data Sender"
+  principal_id         = azurerm_user_assigned_identity.orchestrator.principal_id
+}
+
+resource "azurerm_role_assignment" "orchestrator_kv_secrets" {
+  scope                = var.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.orchestrator.principal_id
+}
+
+resource "azurerm_role_assignment" "worker_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.worker.principal_id
+}
+
+resource "azurerm_role_assignment" "worker_sb_receiver" {
+  scope                = "${var.service_bus_namespace_id}/queues/${var.service_bus_queue_name}"
+  role_definition_name = "Azure Service Bus Data Receiver"
+  principal_id         = azurerm_user_assigned_identity.worker.principal_id
+}
+
+resource "azurerm_role_assignment" "worker_kv_secrets" {
+  scope                = var.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.worker.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_law_reader" {
+  scope                = var.log_analytics_workspace_id
+  role_definition_name = "Monitoring Reader"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_sb_sender" {
+  scope                = var.service_bus_namespace_id
+  role_definition_name = "Azure Service Bus Data Sender"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_sb_receiver" {
+  scope                = var.service_bus_namespace_id
+  role_definition_name = "Azure Service Bus Data Receiver"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
+}
+
+resource "azurerm_role_assignment" "e2e_foundry_reader" {
+  scope                = var.foundry_project_id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_user_assigned_identity.e2e.principal_id
 }
 
 // =====================================================================
@@ -164,6 +264,14 @@ resource "azurerm_container_app" "orchestrator" {
       cpu    = 0.5
       memory = "1Gi"
 
+      env {
+        name  = "SERVICE_BUS_FQDN"
+        value = local.service_bus_fqdn
+      }
+      env {
+        name  = "SERVICE_BUS_QUEUE"
+        value = var.service_bus_queue_name
+      }
       env {
         name  = "STORAGE_QUEUE_ENDPOINT"
         value = var.storage_queue_endpoint
@@ -233,7 +341,7 @@ resource "azurerm_container_app_job" "e2e_runner" {
   template {
     container {
       name   = "e2e"
-      image  = "mcr.microsoft.com/azurelinux/base/python:3.13"
+      image  = "mcr.microsoft.com/azure-cli:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -248,6 +356,14 @@ resource "azurerm_container_app_job" "e2e_runner" {
       env {
         name  = "LOG_ANALYTICS_WORKSPACE_ID"
         value = var.log_analytics_workspace_id
+      }
+      env {
+        name  = "SERVICE_BUS_FQDN"
+        value = local.service_bus_fqdn
+      }
+      env {
+        name  = "SERVICE_BUS_QUEUE"
+        value = var.service_bus_queue_name
       }
       env {
         name  = "STORAGE_QUEUE_ENDPOINT"
@@ -324,5 +440,3 @@ output "e2e_uami_resource_id" {
   value       = azurerm_user_assigned_identity.e2e.id
   description = "E2E runtime UAMI resource ID."
 }
-
-

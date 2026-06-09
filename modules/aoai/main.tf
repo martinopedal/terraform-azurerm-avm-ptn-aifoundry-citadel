@@ -6,10 +6,18 @@ variable "name_suffix" { type = string }
 variable "pe_subnet_id" { type = string }
 variable "private_dns_zone_ids" { type = map(string) }
 variable "log_analytics_workspace_id" { type = string }
-variable "aoai_capacity" {
-  type    = number
-  default = 30
+variable "aoai_deployments" {
+  type = list(object({
+    name     = string
+    model    = string
+    version  = string
+    sku_type = string
+    capacity = number
+  }))
 }
+variable "enable_private_endpoints" { type = bool }
+variable "public_network_access" { type = bool }
+variable "disable_local_auth" { type = bool }
 variable "tags" { type = map(string) }
 variable "enable_telemetry" { type = bool }
 
@@ -38,35 +46,23 @@ module "aoai" {
   kind                          = "OpenAI"
   sku_name                      = "S0"
   custom_subdomain_name         = local.account_name
-  public_network_access_enabled = false
-  local_auth_enabled            = false
+  public_network_access_enabled = var.public_network_access
+  local_auth_enabled            = !var.disable_local_auth
   managed_identities            = { system_assigned = true }
   network_acls                  = { default_action = "Deny" }
   tags                          = var.tags
 
   cognitive_deployments = {
-    "gpt-4o" = {
-      name = "gpt-4o"
+    for d in var.aoai_deployments : d.name => {
+      name = d.name
       model = {
         format  = "OpenAI"
-        name    = "gpt-4o"
-        version = "2024-08-06"
+        name    = d.model
+        version = d.version
       }
       scale = {
-        type     = "GlobalStandard"
-        capacity = var.aoai_capacity
-      }
-    }
-    "text-embedding-3-large" = {
-      name = "text-embedding-3-large"
-      model = {
-        format  = "OpenAI"
-        name    = "text-embedding-3-large"
-        version = "1"
-      }
-      scale = {
-        type     = "Standard"
-        capacity = 50
+        type     = d.sku_type
+        capacity = d.capacity
       }
     }
   }
@@ -75,12 +71,12 @@ module "aoai" {
     to_law = {
       name                  = "to-law"
       workspace_resource_id = var.log_analytics_workspace_id
-      log_categories        = ["Audit", "RequestResponse"]
+      log_groups            = ["allLogs"]
       metric_categories     = ["AllMetrics"]
     }
   }
 
-  private_endpoints = {
+  private_endpoints = var.enable_private_endpoints ? {
     account = {
       name                            = "pe-${local.account_name}"
       subnet_resource_id              = var.pe_subnet_id
@@ -88,7 +84,7 @@ module "aoai" {
       private_dns_zone_resource_ids   = [var.private_dns_zone_ids["privatelink.openai.azure.com"]]
       tags                            = var.tags
     }
-  }
+  } : {}
 }
 
 output "account_id" {

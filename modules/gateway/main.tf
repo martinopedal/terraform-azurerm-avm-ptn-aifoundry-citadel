@@ -20,6 +20,7 @@ variable "application_insights_instrumentation_key" {
   sensitive = true
 }
 variable "aoai_endpoint" { type = string }
+variable "aoai_resource_id" { type = string }
 variable "foundry_project_endpoint" { type = string }
 variable "tenant_id" { type = string }
 variable "tags" { type = map(string) }
@@ -30,6 +31,11 @@ terraform {
   required_providers {
     azurerm = { source = "hashicorp/azurerm", version = "~> 4.0" }
   }
+}
+
+data "azurerm_client_config" "current" {}
+locals {
+  cognitive_services_user_role_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/a97b65f3-24c7-4388-baec-2e87135dc908"
 }
 
 module "apim" {
@@ -43,7 +49,7 @@ module "apim" {
   publisher_name            = "AI Platform Team"
   publisher_email           = "ai-platform@dnb.no"
   sku_name                  = var.apim_sku
-  zones                     = var.zones
+  zones                     = length(var.zones) > 0 ? var.zones : null
   virtual_network_type      = "Internal"
   virtual_network_subnet_id = var.apim_subnet_id
   managed_identities        = { system_assigned = true }
@@ -94,6 +100,12 @@ resource "azurerm_api_management_logger" "appi" {
   }
 }
 
+resource "azurerm_role_assignment" "apim_to_aoai" {
+  scope              = var.aoai_resource_id
+  role_definition_id = local.cognitive_services_user_role_id
+  principal_id       = module.apim.workspace_identity.principal_id
+  principal_type     = "ServicePrincipal"
+}
 
 output "apim_name" { value = module.apim.name }
 output "apim_id" { value = module.apim.resource_id }
