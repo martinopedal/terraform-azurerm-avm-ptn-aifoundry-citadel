@@ -104,6 +104,11 @@ terraform {
   }
 }
 
+data "azurerm_log_analytics_workspace" "aca" {
+  name                = element(split("/", var.log_analytics_workspace_id), length(split("/", var.log_analytics_workspace_id)) - 1)
+  resource_group_name = element(split("/", var.log_analytics_workspace_id), 4)
+}
+
 locals {
   sb_namespace_name = element(split("/", var.service_bus_namespace_id), length(split("/", var.service_bus_namespace_id)) - 1)
   service_bus_fqdn  = "${local.sb_namespace_name}.servicebus.windows.net"
@@ -133,11 +138,15 @@ module "managed_environment" {
   resource_group_name           = var.resource_group_name
   infrastructure_resource_group = "${var.resource_group_name}-infra"
   zone_redundant                = var.zone_redundant
-  # Use explicit app_logs_configuration (v0.5.0+ recommended) instead of deprecated log_analytics_workspace
+  # Use explicit app_logs_configuration (v0.5.0+ recommended) with customer_id + shared_key
+  # AVM v0.5.0 requires explicit values in app_logs_configuration.log_analytics_configuration
   app_logs_configuration = {
     destination = "log-analytics"
+    log_analytics_configuration = {
+      customer_id = data.azurerm_log_analytics_workspace.aca.workspace_id
+    }
   }
-  # Still pass log_analytics_workspace for auto-fetching customer ID + shared key
+  # Pass log_analytics_workspace for shared key auto-fetch (module will use primary_shared_key from data source)
   log_analytics_workspace = { resource_id = var.log_analytics_workspace_id }
   vnet_configuration = {
     infrastructure_subnet_id = var.aca_subnet_id
