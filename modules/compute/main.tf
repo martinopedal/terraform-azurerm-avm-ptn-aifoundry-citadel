@@ -133,7 +133,12 @@ module "managed_environment" {
   resource_group_name           = var.resource_group_name
   infrastructure_resource_group = "${var.resource_group_name}-infra"
   zone_redundant                = var.zone_redundant
-  log_analytics_workspace       = { resource_id = var.log_analytics_workspace_id }
+  # Use explicit app_logs_configuration (v0.5.0+ recommended) instead of deprecated log_analytics_workspace
+  app_logs_configuration = {
+    destination = "log-analytics"
+  }
+  # Still pass log_analytics_workspace for auto-fetching customer ID + shared key
+  log_analytics_workspace = { resource_id = var.log_analytics_workspace_id }
   vnet_configuration = {
     infrastructure_subnet_id = var.aca_subnet_id
     internal                 = true
