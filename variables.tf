@@ -189,3 +189,9 @@ variable "e2e_job_image" {
   default     = "mcr.microsoft.com/azure-cli:latest"
   description = "Container image for the e2e test job. Default is mcr.microsoft.com/azure-cli:latest; for private networks use an ACR-imported copy (e.g., acrname.azurecr.io/azure-cli:latest)."
 }
+
+variable "enable_e2e_job" {
+  description = "Enable creation of the e2e test Container App Job. Set to false to skip e2e job deployment (useful when troubleshooting DNS/networking issues)."
+  type        = bool
+  default     = true
+}
