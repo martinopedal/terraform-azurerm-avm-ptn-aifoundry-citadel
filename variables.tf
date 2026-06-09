@@ -194,3 +194,11 @@ variable "diagnostic_retention_days" {
   default     = 30
   description = "Diagnostic log retention in days. Default 30 (cheap baseline). Increase for compliance needs (90, 180, 365)."
 }
+
+# -------------------- E2E TEST JOB --------------------
+
+variable "e2e_job_image" {
+  type        = string
+  default     = "mcr.microsoft.com/azure-cli:latest"
+  description = "Container image for the e2e test job. Default is mcr.microsoft.com/azure-cli:latest; for private networks use an ACR-imported copy (e.g., acrname.azurecr.io/azure-cli:latest)."
+}
