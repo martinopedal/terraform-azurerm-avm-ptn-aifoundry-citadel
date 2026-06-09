@@ -145,6 +145,7 @@ module "compute" {
   foundry_project_endpoint               = module.foundry.project_endpoint
   foundry_project_id                     = module.foundry.project_id
   git_sha                                = var.git_sha
+  e2e_job_image                          = var.e2e_job_image
   env_name                               = var.environment
   enable_telemetry                       = var.enable_telemetry
   tags                                   = local.tags

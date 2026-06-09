@@ -77,6 +77,12 @@ variable "git_sha" {
   default     = "latest"
 }
 
+variable "e2e_job_image" {
+  description = "Container image for the e2e test job. Default is mcr.microsoft.com/azure-cli:latest; for private networks use an ACR-imported copy."
+  type        = string
+  default     = "mcr.microsoft.com/azure-cli:latest"
+}
+
 # tflint-ignore: terraform_unused_declarations
 variable "env_name" {
   description = "Environment name for container image tags (consumed when Container Apps uncommented)"
@@ -341,7 +347,7 @@ resource "azurerm_container_app_job" "e2e_runner" {
   template {
     container {
       name   = "e2e"
-      image  = "mcr.microsoft.com/azure-cli:latest"
+      image  = var.e2e_job_image
       cpu    = 0.5
       memory = "1Gi"
 
