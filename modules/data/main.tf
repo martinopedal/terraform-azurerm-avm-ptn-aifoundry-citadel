@@ -352,6 +352,7 @@ resource "azapi_resource" "acr_agent_pool" {
     properties = {
       count                          = 1
       tier                           = "S1"
+      os                             = "Linux"
       virtualNetworkSubnetResourceId = var.acr_tasks_subnet_id
     }
   }
