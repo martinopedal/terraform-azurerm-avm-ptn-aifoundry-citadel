@@ -144,6 +144,7 @@ module "managed_environment" {
     destination = "log-analytics"
     log_analytics_configuration = {
       customer_id = data.azurerm_log_analytics_workspace.aca.workspace_id
+      shared_key  = data.azurerm_log_analytics_workspace.aca.primary_shared_key
     }
   }
   # Pass log_analytics_workspace for shared key auto-fetch (module will use primary_shared_key from data source)
