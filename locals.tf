@@ -9,7 +9,7 @@ locals {
   sku_map = {
     dev  = { search = "standard", acr = "Premium" }
     test = { search = "standard", acr = "Premium" }
-    prod = { search = "standard2", acr = "Premium" }
+    prod = { search = "standard", acr = "Premium" }
   }
   sku = local.sku_map[var.environment]
 
