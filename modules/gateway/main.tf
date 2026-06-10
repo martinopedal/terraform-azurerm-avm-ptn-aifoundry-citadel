@@ -107,6 +107,112 @@ resource "azurerm_role_assignment" "apim_to_aoai" {
   principal_type     = "ServicePrincipal"
 }
 
+// =====================================================================
+// APIM API: OpenAI proxy to Foundry AOAI backend
+// =====================================================================
+resource "azurerm_api_management_api" "aoai_api" {
+  name                  = "aoai-api"
+  resource_group_name   = var.resource_group_name
+  api_management_name   = module.apim.name
+  revision              = "1"
+  display_name          = "Azure OpenAI API"
+  path                  = "openai"
+  protocols             = ["https"]
+  subscription_required = true
+  service_url           = null # Backend URL set via policy, not serviceUrl
+
+  import {
+    content_format = "openapi+json"
+    content_value = jsonencode({
+      openapi = "3.0.0"
+      info = {
+        title   = "Azure OpenAI API"
+        version = "1.0"
+      }
+      servers = [
+        { url = "https://${module.apim.apim_gateway_url}/openai" }
+      ]
+      paths = {
+        "/deployments/{deployment-id}/chat/completions" = {
+          post = {
+            operationId = "chatCompletions"
+            summary     = "Creates a completion for the chat message"
+            parameters = [
+              {
+                name     = "deployment-id"
+                in       = "path"
+                required = true
+                schema   = { type = "string" }
+              },
+              {
+                name     = "api-version"
+                in       = "query"
+                required = true
+                schema   = { type = "string" }
+              }
+            ]
+            requestBody = {
+              required = true
+              content = {
+                "application/json" = {
+                  schema = { type = "object" }
+                }
+              }
+            }
+            responses = {
+              "200" = {
+                description = "Success"
+                content = {
+                  "application/json" = {
+                    schema = { type = "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+  }
+}
+
+// =====================================================================
+// APIM API Policy: Backend routing + Managed Identity auth
+// Codifies the live fix from 2026-06-10 (squad-citadel-e2e-green.md)
+// =====================================================================
+resource "azurerm_api_management_api_policy" "aoai_api" {
+  api_name            = azurerm_api_management_api.aoai_api.name
+  api_management_name = module.apim.name
+  resource_group_name = var.resource_group_name
+
+  xml_content = <<XML
+<policies>
+  <inbound>
+    <base />
+    <!-- Route to the Foundry AOAI backend (prod until dev AOAI is deployed) -->
+    <set-backend-service base-url="${var.aoai_endpoint}" />
+    <!-- Authenticate via APIM system-assigned managed identity -->
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-token" />
+    <!-- Set Authorization header with the MI token -->
+    <set-header name="Authorization" exists-action="override">
+      <value>@("Bearer " + (string)context.Variables["msi-token"])</value>
+    </set-header>
+    <!-- Strip the client subscription key before forwarding to backend -->
+    <set-header name="api-key" exists-action="delete" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
+XML
+}
+
 output "apim_name" { value = module.apim.name }
 output "apim_id" { value = module.apim.resource_id }
 output "apim_gateway_url" { value = module.apim.apim_gateway_url }
